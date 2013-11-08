@@ -32,7 +32,8 @@ from control_msgs.msg import JointTrajectoryGoal, JointTrajectoryAction
 from pr2_mechanism_msgs.srv import SwitchController
 from sensor_msgs.msg import JointState
 from animation import AnimationPlayer
-from pair import Pair
+from quad import Quad
+from room_navigator import RoomNavigator
 
 class SimpleGUI(Plugin):
     
@@ -77,6 +78,9 @@ class SimpleGUI(Plugin):
         self.switch_service_client = rospy.ServiceProxy(switch_srv_name,
                                                  SwitchController)
                                                  
+        # Navigation functionality initialization
+        self.roomNav = RoomNavigator()
+                                                 
         self.r_joint_names = ['r_shoulder_pan_joint',
                               'r_shoulder_lift_joint',
                               'r_upper_arm_roll_joint',
@@ -104,22 +108,6 @@ class SimpleGUI(Plugin):
         # Hash tables for storing name of animations and the associated pose list
         self.saved_animations = {}
         
-        '''l_path = '/home/team4/catkin_ws/lib/rqt_simplegui/l_arm_poses/'
-        l_listing = os.listdir(l_path)
-        for infile in l_listing:
-            positions = []
-            for line in fileinput.input(l_path + infile):
-                positions.append(float(line))
-            self.saved_l_poses[os.path.splitext(infile)[0]] = positions
-        
-        r_path = '/home/team4/catkin_ws/lib/rqt_simplegui/r_arm_poses/'
-        r_listing = os.listdir(r_path)
-        for infile in r_listing:
-            positions = []
-            for line in fileinput.input(r_path + infile):
-                positions.append(float(line))
-            self.saved_r_poses[os.path.splitext(infile)[0]] = positions'''
-
         self.lock = threading.Lock()
         rospy.Subscriber('joint_states', JointState, self.joint_states_cb)
         
@@ -133,11 +121,20 @@ class SimpleGUI(Plugin):
         for infile in ani_listing:
             pose_left = []
             pose_right = []
+            left_gripper_states = []
+            right_gripper_states = []
+            line_num = 1
             for line in fileinput.input(ani_path + infile):
-                pose = [float(x) for x in line.split()]
-                pose_left.append(pose[:len(pose)/2])
-                pose_right.append(pose[len(pose)/2:])
-            self.saved_animations[os.path.splitext(infile)[0]] = Pair(pose_left, pose_right)
+                if (line_num % 2 == 1):
+                    pose = [float(x) for x in line.split()]
+                    pose_left.append(pose[:len(pose)/2])
+                    pose_right.append(pose[len(pose)/2:])
+                else:
+                    states = line.split()
+                    left_gripper_states.append(states[0])
+                    right_gripper_states.append(states[1])
+                line_num += 1
+            self.saved_animations[os.path.splitext(infile)[0]] = Quad(pose_left, pose_right, left_gripper_states, right_gripper_states)
 
 
         # Create a trajectory action client
@@ -213,30 +210,6 @@ class SimpleGUI(Plugin):
         pose_button_box1.addStretch(1)
         large_box.addLayout(pose_button_box1)
         
-        '''
-        pose_button_box2 = QtGui.QHBoxLayout()
-        self.l_arm_save = QtGui.QLineEdit(self._widget)
-        pose_button_box2.addWidget(self.l_arm_save);
-        pose_button_box2.addWidget(self.create_button('Save Left Arm Pose'))
-        pose_button_box1.addItem(QtGui.QSpacerItem(275,0))
-        
-        self.r_arm_save = QtGui.QLineEdit(self._widget)
-        pose_button_box2.addWidget(self.r_arm_save);
-        pose_button_box2.addWidget(self.create_button('Save Right Arm Pose'))
-        pose_button_box2.addStretch(1)
-        large_box.addLayout(pose_button_box2)
-        
-        pose_button_box3 = QtGui.QHBoxLayout()
-        self.l_arm_load = QtGui.QComboBox(self._widget)
-        pose_button_box3.addWidget(self.l_arm_load)
-        pose_button_box3.addWidget(self.create_button('Load Left Arm Pose'))
-        self.r_arm_load = QtGui.QComboBox(self._widget)
-        pose_button_box3.addWidget(self.r_arm_load)
-        pose_button_box3.addWidget(self.create_button('Load Right Arm Pose'))
-        pose_button_box3.addWidget(self.create_button('Load Both Arm Poses'))
-        pose_button_box3.addStretch(1)
-        large_box.addLayout(pose_button_box3)
-        '''
         
         # Buttons for grippers
         gripper_button_box = QtGui.QHBoxLayout()
@@ -320,10 +293,9 @@ class SimpleGUI(Plugin):
         second_base_button_box = QtGui.QHBoxLayout()
         second_base_button_box.addItem(QtGui.QSpacerItem(70,0))
         second_base_button_box.addWidget(self.create_pressed_button('<'))
-        #second_base_button_box.addItem(QtGui.QSpacerItem(10,0))        
         second_base_button_box.addWidget(self.create_pressed_button('v'))
-        #second_base_button_box.addItem(QtGui.QSpacerItem(10,0)) 
         second_base_button_box.addWidget(self.create_pressed_button('>'))
+        second_base_button_box.addWidget(self.create_button('Move to Trash'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
         
@@ -331,7 +303,7 @@ class SimpleGUI(Plugin):
         self.animation_map = {}
         
         self.create_state = False
-        self.animPlay = AnimationPlayer(None, None)
+        self.animPlay = AnimationPlayer(None, None, None, None)
         
         self._widget.setObjectName('SimpleGUI')
         self._widget.setLayout(large_box)
@@ -344,6 +316,8 @@ class SimpleGUI(Plugin):
         self.head_action(self.head_x, self.head_y, self.head_z)
 
         # Set grippers to closed on initialization
+        self.left_gripper_state = ''
+        self.right_gripper_state = ''
         self.gripper_action('l', 0.0)
         self.gripper_action('r', 0.0)
     
@@ -358,15 +332,11 @@ class SimpleGUI(Plugin):
         saved_pose_box.addWidget(self.saved_left_poses)
         saved_pose_box.addWidget(self.saved_right_poses)
         large_box.addLayout(saved_pose_box)
-        '''
-        # Preload the map of poses
-        self.l_arm_load.addItems(self.saved_l_poses.keys())
-        self.r_arm_load.addItems(self.saved_r_poses.keys())
-        '''
+
         # Preload the map of animations
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
-        
+        rospy.loginfo("Completed GUI initialization")
         
     # Event for when text box is changed
     def onChanged(self, text):    
@@ -455,15 +425,12 @@ class SimpleGUI(Plugin):
                     old_arm_state = 'Relax'
                 
                 self._widget.sender().setText('%s %s Arm' % (old_arm_state, arm_side))
-            '''elif ('Pose' in button_name):
-                if ('Save' in button_name):
-                    self.save_pose(arm_side[0].lower())
-                elif ('Load' in button_name):
-                    self.move_arm(arm_side[0].lower(), self.saved_l_poses[self.l_arm_load.currentText()], self.saved_r_poses[self.r_arm_load.currentText()])'''
         
         elif('Play Animation' == button_name):
             self.animPlay.left_poses = self.saved_animations[self.saved_animations_list.currentText()].left
             self.animPlay.right_poses = self.saved_animations[self.saved_animations_list.currentText()].right
+            self.animPlay.left_gripper_states = self.saved_animations[self.saved_animations_list.currentText()].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations[self.saved_animations_list.currentText()].right_gripper
             if self.pose_time.text() == '':
                 self.show_warning('Please enter a duration in seconds.')
             else:
@@ -482,11 +449,15 @@ class SimpleGUI(Plugin):
             if self.pose_name_temp.text() == '':
                 self.show_warning('Insert name for pose')
             else:
-                self.animation_map[self.pose_name_temp.text()] = Pair(self.get_joint_state('l'), self.get_joint_state('r'))
+                self.animation_map[self.pose_name_temp.text()] = Quad(self.get_joint_state('l'), self.get_joint_state('r'), self.left_gripper_state, self.right_gripper_state)
                 list_item = QListWidgetItem()
                 list_item.setText(self.pose_name_temp.text())
                 self.list_widget.addItem(list_item) 
                 self.pose_name_temp.setText('')  
+                
+        elif('Move to Trash' == button_name):
+            rospy.loginfo('Clicked the move to trash button')
+            self.roomNav.move_to_trash()
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
@@ -499,6 +470,17 @@ class SimpleGUI(Plugin):
         gripper_goal.command.position = gripper_position 
         gripper_goal.command.max_effort = 30.0
         gripper_client.send_goal(gripper_goal)
+        # update the state of the current gripper being modified
+        if (gripper_type == 'l'):
+            if (gripper_position == 0.0):
+                self.left_gripper_state = 'closed'
+            else:
+                self.left_gripper_state = 'open'
+        else:
+            if (gripper_position == 0.0):
+                self.right_gripper_state = 'closed'
+            else:
+                self.right_gripper_state = 'open'
         
     def base_action(self, x, y, z, theta_x, theta_y, theta_z):
         topic_name = '/base_controller/command'
@@ -557,17 +539,23 @@ class SimpleGUI(Plugin):
             anim_file = open(filename + animation_name + '.txt', 'w')
             l_animation_queue = []
             r_animation_queue = []
+            l_gripper_queue = []
+            r_gripper_queue = []
             for i in range(self.list_widget.count()):
                 item = self.list_widget.item(i)
                 pose_name = item.text()
                 anim_file.write(re.sub(',' , '', str(self.animation_map[pose_name].left).strip('[]') +
                                              ' ' + str(self.animation_map[pose_name].right).strip('[]')))
+                anim_file.write('\n')
+                anim_file.write(str(self.animation_map[pose_name].left_gripper) + ' ' + str(self.animation_map[pose_name].right_gripper))
                 l_animation_queue.append(self.animation_map[pose_name].left)
                 r_animation_queue.append(self.animation_map[pose_name].right)
+                l_gripper_queue.append(self.animation_map[pose_name].left_gripper)
+                r_gripper_queue.append(self.animation_map[pose_name].right_gripper)
                 anim_file.write('\n')
             anim_file.close()
             
-            self.saved_animations[animation_name] = Pair(l_animation_queue, r_animation_queue)
+            self.saved_animations[animation_name] = Quad(l_animation_queue, r_animation_queue, l_gripper_queue, r_gripper_queue)
             self.saved_animations_list.addItem(animation_name) # Bug? Multiple entries
    
             # Reset the pending queue
@@ -575,60 +563,6 @@ class SimpleGUI(Plugin):
             self.r_animation_queue = []
         else:
             self.show_warning('Please insert name for animation')
-        
-        
-    '''def save_pose(self, side_prefix):
-        if (side_prefix == 'r'):
-            pose_name = self.r_arm_save.text()
-            if(pose_name == ''):
-                self.show_warning('Please insert name for pose!')
-            else:
-                positions = self.get_joint_state('r')
-                dir = os.path.dirname(__file__)
-                filename = os.path.join(dir, '/catkin_ws/lib/rqt_simplegui/r_arm_poses/')
-                qWarning(filename)
-                pose_file = open(filename + pose_name + '.txt', 'w')
-                for position in positions:
-                    pose_file.write(str(position) + '\n')
-                pose_file.close()
-                self.saved_r_poses[pose_name] = positions
-                self.r_arm_load.addItem(pose_name)
-          
-        else:
-            pose_name = self.l_arm_save.text()
-            if(pose_name == ''):
-               self.show_warning('')
-            else:
-                positions = self.get_joint_state('l')
-                pose_file = open('/home/team4/catkin_ws/lib/rqt_simplegui/l_arm_poses/' + pose_name + '.txt', 'w')
-                for position in positions:
-                    pose_file.write(str(position) + '\n')
-                pose_file.close()
-                self.saved_l_poses[pose_name] = positions
-                self.l_arm_load.addItem(pose_name)'''
-
-    def move_arm(self, side_prefix, left_pose, right_pose):
-        if (side_prefix == 'r'):
-            if right_pose == None:
-                rospy.logerr('Target pose does not exist.')
-            else:
-                self.toggle_arm('r', 'Freeze', False)
-                self.move_to_joints('r', right_pose, 2.0)
-        elif (side_prefix == 'l'):
-            if left_pose == None:
-                rospy.logerr('Target pose does not exist.')
-            else:
-                self.toggle_arm('l', 'Freeze', False)
-                self.move_to_joints('l', left_pose, 2.0)
-                
-        # Move both arms according to the selected boxes on the GUI
-        else:
-            if right_pose != None:
-                self.toggle_arm('r', 'Freeze', False)
-                self.move_to_joints('r', right_pose, 2.0)
-            if left_pose != None:
-                self.toggle_arm('l', 'Freeze', False)
-                self.move_to_joints('l', left_pose, 2.0)
                 
                 
     def gripper_click(self, button_name):
@@ -710,22 +644,6 @@ class SimpleGUI(Plugin):
             
             #qWarning('x: %s, y: %s' % (self.head_x, self.head_y))
             self.head_action(self.head_x, self.head_y, self.head_z)
-
-
-    def move_to_joints(self, side_prefix, positions, time_to_joint):
-        '''Moves the arm to the desired joints'''
-        velocities = [0] * len(positions)
-        traj_goal = JointTrajectoryGoal()
-        traj_goal.trajectory.header.stamp = (rospy.Time.now() + rospy.Duration(1.0))
-        traj_goal.trajectory.points.append(JointTrajectoryPoint(positions=positions,
-                            velocities=velocities, time_from_start=rospy.Duration(time_to_joint)))
-    
-        if (side_prefix == 'r'):
-            traj_goal.trajectory.joint_names = self.r_joint_names
-            self.r_traj_action_client.send_goal(traj_goal)
-        else:
-            traj_goal.trajectory.joint_names = self.l_joint_names
-            self.l_traj_action_client.send_goal(traj_goal)
 
     def toggle_arm(self, side, toggle, button):
         controller_name = side + '_arm_controller'

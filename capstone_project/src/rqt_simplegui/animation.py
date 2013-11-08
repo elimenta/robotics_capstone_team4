@@ -9,7 +9,7 @@ roslib.load_manifest('actionlib')
 
 import rospy
 from trajectory_msgs.msg import JointTrajectoryPoint
-from control_msgs.msg import JointTrajectoryGoal, JointTrajectoryAction
+from control_msgs.msg import JointTrajectoryGoal, JointTrajectoryAction, GripperCommandAction, GripperCommandGoal
 from actionlib import SimpleActionClient
 from actionlib_msgs.msg import GoalStatus
 from subprocess import call
@@ -17,12 +17,15 @@ from pr2_mechanism_msgs.srv import SwitchController
 
 
 class AnimationPlayer:
-    def __init__(self, left_poses, right_poses):
+    def __init__(self, left_poses, right_poses, left_gripper_states, right_gripper_states):
         # Sequence of poses to be used in our animation (assumes both are the same size for now)
         # Note that poses refers to an array of arrays of 7 coordinates for joints
         
         self.left_poses  = left_poses
         self.right_poses = right_poses
+        self.left_gripper_states = left_gripper_states
+        self.right_gripper_states = right_gripper_states
+        
         self.r_joint_names = ['r_shoulder_pan_joint',
                               'r_shoulder_lift_joint',
                               'r_upper_arm_roll_joint',
@@ -62,7 +65,32 @@ class AnimationPlayer:
             self.move_arm('r', self.left_poses[i], self.right_poses[i], duration)
             self.l_traj_action_client.wait_for_result()
             self.r_traj_action_client.wait_for_result()
+            
+            if(self.left_gripper_states[i] == 'open'):
+                self.gripper_action('l', 30.0)
+            else:
+                self.gripper_action('l', 0.0)
+            
+            self.gripper_client.wait_for_result()
+            
+            if(self.right_gripper_states[i] == 'open'):
+                self.gripper_action('r', 30.0)
+            else:
+                self.gripper_action('r', 0.0)
+                
+            self.gripper_client.wait_for_result()
+            
+    # gripper_type is either 'l' for left or 'r' for right
+    # gripper position is the position as a parameter to the gripper goal
+    def gripper_action(self, gripper_type, gripper_position):
+        name_space = '/' + gripper_type + '_gripper_controller/gripper_action'
+        self.gripper_client = SimpleActionClient(name_space, GripperCommandAction)
+        gripper_goal = GripperCommandGoal()
+        gripper_goal.command.position = gripper_position 
+        gripper_goal.command.max_effort = 30.0
+        self.gripper_client.send_goal(gripper_goal)
         
+    # Moves arms into the positions that were specified in the array
     def move_arm(self, side_prefix, left_pose, right_pose, duration):
         if (side_prefix == 'r'):
             if right_pose == None:
