@@ -21,7 +21,7 @@ from python_qt_binding.QtGui import QWidget, QFrame, QGroupBox, QListWidget, QLi
 from python_qt_binding.QtCore import QSignalMapper, qWarning, Signal
 from sound_play.msg import SoundRequest
 from sound_play.libsoundplay import SoundClient
-from control_msgs.msg import GripperCommandAction, GripperCommandGoal, PointHeadAction, PointHeadGoal
+from control_msgs.msg import GripperCommandAction, GripperCommandGoal, PointHeadAction, PointHeadGoal, SingleJointPositionGoal, SingleJointPositionAction
 from actionlib import SimpleActionClient
 from actionlib_msgs.msg import GoalStatus
 from geometry_msgs.msg import Twist, Vector3, Point, Quaternion, Pose
@@ -34,6 +34,7 @@ from sensor_msgs.msg import JointState
 from animation import AnimationPlayer
 from quad import Quad
 from room_navigator import RoomNavigator
+from gripper_markers import GripperMarkers
 
 class SimpleGUI(Plugin):
     
@@ -78,8 +79,6 @@ class SimpleGUI(Plugin):
         self.switch_service_client = rospy.ServiceProxy(switch_srv_name,
                                                  SwitchController)
                                                  
-        # Navigation functionality initialization
-        self.roomNav = RoomNavigator()
                                                  
         self.r_joint_names = ['r_shoulder_pan_joint',
                               'r_shoulder_lift_joint',
@@ -147,6 +146,9 @@ class SimpleGUI(Plugin):
         self.l_traj_action_client = SimpleActionClient(l_traj_controller_name, JointTrajectoryAction)
         rospy.loginfo('Waiting for a response from the trajectory action server for LEFT arm...')
         self.l_traj_action_client.wait_for_server()
+
+        # Navigation functionality initialization
+        self.roomNav = RoomNavigator()
         
         QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
         self.joint_sig.connect(self.joint_sig_cb)
@@ -295,6 +297,7 @@ class SimpleGUI(Plugin):
         second_base_button_box.addWidget(self.create_pressed_button('<'))
         second_base_button_box.addWidget(self.create_pressed_button('v'))
         second_base_button_box.addWidget(self.create_pressed_button('>'))
+        second_base_button_box.addWidget(self.create_button('Move to Bin'))
         second_base_button_box.addWidget(self.create_button('Move to Trash'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
@@ -336,6 +339,12 @@ class SimpleGUI(Plugin):
         # Preload the map of animations
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
+        # Move the torso all the way down
+        self.torso_down()
+
+        # Launch tracking information
+        self.ARTracker = GripperMarkers()
+
         rospy.loginfo("Completed GUI initialization")
         
     # Event for when text box is changed
@@ -455,9 +464,30 @@ class SimpleGUI(Plugin):
                 self.list_widget.addItem(list_item) 
                 self.pose_name_temp.setText('')  
                 
+        elif('Move to Bin' == button_name):
+            rospy.loginfo('Clicked the move to bin button')
+            '''
+            self.animPlay.left_poses = self.saved_animations['left_tuck'].left
+            self.animPlay.right_poses = self.saved_animations['left_tuck'].right
+            self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
+            self.animPlay.play('3.0')
+            '''
+            self.roomNav.move_to_bin()
+            self.animPlay.left_poses = self.saved_animations['l_dispose'].left
+            self.animPlay.right_poses = self.saved_animations['l_dispose'].right
+            self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
+            self.animPlay.play('2.0')
+
         elif('Move to Trash' == button_name):
-            rospy.loginfo('Clicked the move to trash button')
-            self.roomNav.move_to_trash()
+        	rospy.loginfo('Clicked the move to trash button')
+
+        	target_dest = self.ARTracker.get_marker_pose_in_frame('map')
+
+        	self.roomNav.move_to_trash_location(target_dest)
+
+        
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
@@ -491,6 +521,15 @@ class SimpleGUI(Plugin):
         twist_msg.angular = Vector3(theta_x, theta_y, theta_z)
         
         base_publisher.publish(twist_msg)
+
+    # Moves the torso of the robot down to its maximum
+    def torso_down(self):
+    	self.torso_client = SimpleActionClient('/torso_controller/position_joint_action', SingleJointPositionAction)
+    	torso_goal = SingleJointPositionGoal()
+    	torso_goal.position = 0.0
+    	torso_goal.min_duration = rospy.Duration(2.0)
+    	torso_goal.max_velocity = 1.0
+    	self.torso_client.send_goal(torso_goal)
 
     def head_action(self, x, y, z):
         name_space = '/head_traj_controller/point_head_action'
