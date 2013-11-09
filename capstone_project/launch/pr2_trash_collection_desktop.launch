@@ -1,0 +1,5 @@
+<launch>
+  <!-- Launch rviz to show map with voxel grids -->
+  <include file="$(find pr2_navigation_global)/rviz/rviz_move_base.launch" />
+  
+</launch>

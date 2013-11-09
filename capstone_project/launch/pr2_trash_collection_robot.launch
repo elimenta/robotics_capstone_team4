@@ -1,0 +1,16 @@
+<launch>
+  <!-- Start up the map server -->
+  <arg name="map_file" default="$(find capstone_project)/map_file/basement_map.yaml"/>
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
+
+  <!-- 2D navigation -->
+  <include file="$(find pr2_machine)/$(env ROBOT).machine" />
+  <include file="$(find pr2_navigation_global)/amcl_node.xml" />
+  <include file="$(find pr2_navigation_teleop)/teleop.xml" />
+  <include file="$(find pr2_navigation_perception)/lasers_and_filters.xml" />
+  <include file="$(find pr2_navigation_perception)/ground_plane.xml" />
+  <include file="$(find pr2_navigation_global)/move_base.xml" />
+  
+  <!-- Make the rqt_GUI appear on the robot -->
+  <node name="rqt_gui" pkg="rqt_gui" type="rqt_gui" output="screen"></node>
+</launch>
