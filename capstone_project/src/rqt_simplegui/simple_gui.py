@@ -462,11 +462,13 @@ class SimpleGUI(Plugin):
                 
         elif('Move to Bin' == button_name):
             rospy.loginfo('Clicked the move to bin button')
+            '''
             self.animPlay.left_poses = self.saved_animations['left_tuck'].left
             self.animPlay.right_poses = self.saved_animations['left_tuck'].right
             self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
             self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
             self.animPlay.play('3.0')
+            '''
             self.roomNav.move_to_bin()
 
         elif('Move to Trash Test' == button_name):
