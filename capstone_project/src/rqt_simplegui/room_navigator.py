@@ -14,6 +14,7 @@ from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Point, Quaternion
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from random import sample
 from math import pow, sqrt
+from tf import TransformListener
 
 class RoomNavigator():
     def __init__(self):
@@ -24,7 +25,7 @@ class RoomNavigator():
         self.fake_test = rospy.get_param("~fake_test", False)
         
         # Goal state return values
-        goal_states = ['PENDING', 'ACTIVE', 'PREEMPTED',
+        self.goal_states = ['PENDING', 'ACTIVE', 'PREEMPTED',
                        'SUCCEEDED', 'ABORTED', 'REJECTED',
                        'PREEMPTING', 'RECALLING', 'RECALLED',
                        'LOST']
@@ -36,7 +37,7 @@ class RoomNavigator():
         # that was used to launch RViz.
         self.locations = dict()
 
-        self.locations['trash'] = Pose(Point(3.6604809761, 4.41259527206, 0.000), Quaternion(0, 0.000, 0.357219963675, 0.934020287549))
+        self.locations['trash'] = Pose(Point(-1.20214903355, -0.475028038025, 0.00), Quaternion(0, 0.000,  0.984054755563, -0.177865786634))
         
         # Publisher to manually control the robot (e.g. to stop it)
         self.cmd_vel_pub = rospy.Publisher('cmd_vel', Twist)
@@ -54,6 +55,9 @@ class RoomNavigator():
         # A variable to hold the initial pose of the robot to be set by
         # the user in RViz
         self.initial_pose = PoseWithCovarianceStamped()
+
+        # A transform listener to get the current position of the robot in the map
+        # self.tf_listener = TransformListener()
         
         # Get the initial pose from the user
         rospy.loginfo("*** Click the 2D Pose Estimate button in RViz to set the robot's initial pose...")
@@ -61,7 +65,7 @@ class RoomNavigator():
         self.last_location = Pose()
         rospy.Subscriber('initialpose', PoseWithCovarianceStamped, self.update_initial_pose)
         
-    def move_to_trash(self):
+    def move_to_bin(self):
         #Set up the next goal location
         self.goal = MoveBaseGoal()
         self.goal.target_pose.pose = self.locations['trash']
@@ -87,8 +91,48 @@ class RoomNavigator():
                 rospy.loginfo("Goal succeeded!")
                 rospy.loginfo("State:" + str(state))
             else:
-              rospy.loginfo("Goal failed with error code: " + str(goal_states[state]))
+              rospy.loginfo("Goal failed with error code: " + str(self.goal_states[state]))
+
+    def move_to_trash_location(self, target_pose = None):
+
+    	target_pose = Pose(Point(2.83523273468, -0.791748523712, 0.000), Quaternion(0, 0.000, 0.0477246240725, 0.998860530934))
+
+        #Set up the next goal location
+        self.goal = MoveBaseGoal()
+        self.goal.target_pose.pose = target_pose
+        self.goal.target_pose.header.frame_id = 'map'
+        self.goal.target_pose.header.stamp = rospy.Time.now()
         
+        # Let the user know where the robot is going next
+        rospy.loginfo("Moving towards trash")
+        
+        # Start the robot toward the next location
+        self.move_base.send_goal(self.goal)
+        
+        # How far away should the robot be from the object before it stops
+        distance_threshold = 1.0
+        
+        #  Wait till the distance from target is within 1m from the robot
+        while(self.get_distance_from_target(target_pose) > distance_threshold):
+        	pass
+        
+        # Stop moving the robot
+        self.move_base.cancel_goal()
+
+        # Trash is now within reach
+        rospy.loginfo("Trash within reach")
+    
+    def get_distance_from_target(self, target_pose):
+    	# Get the latest available transform by passing time 0
+    	try:
+    		self.tf_listener.waitForTransform('/map', '/base_link', rospy.Time())
+    		(trans, rot) = self.tf_listener.lookupTransform('/map', '/base_link', rospy.Time(0))
+    	except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+    		rospy.logwarn('TF exception during transform')
+    		return
+    	rospy.loginfo("Current position: " + str(trans))
+    	return sqrt(pow(trans[0] - target_pose.position.x, 2) + pow(pow(trans[1] - target_pose.position.y, 2)))
+
     def update_initial_pose(self, initial_pose):
         self.initial_pose = initial_pose
 
