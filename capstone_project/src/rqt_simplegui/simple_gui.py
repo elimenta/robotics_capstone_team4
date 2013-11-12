@@ -470,7 +470,12 @@ class SimpleGUI(Plugin):
             self.animPlay.play('3.0')
             '''
             self.roomNav.move_to_bin()
-
+            self.roomNav.move_to_bin()
+            self.animPlay.left_poses = self.saved_animations['l_dispose'].left
+            self.animPlay.right_poses = self.saved_animations['l_dispose'].right
+            self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
+            self.animPlay.play('2.0')
         elif('Move to Trash Test' == button_name):
             rospy.loginfo('Testing move to trash')
             self.animPlay.left_poses = self.saved_animations['left_tuck'].left
