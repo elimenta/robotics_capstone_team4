@@ -93,34 +93,35 @@ class RoomNavigator():
             else:
               rospy.loginfo("Goal failed with error code: " + str(self.goal_states[state]))
 
-    def move_to_trash_location(self, target_pose = None):
-
-    	target_pose = Pose(Point(2.83523273468, -0.791748523712, 0.000), Quaternion(0, 0.000, 0.0477246240725, 0.998860530934))
+    def move_to_trash_location(self, target_stamp_pose):
 
         #Set up the next goal location
         self.goal = MoveBaseGoal()
-        self.goal.target_pose.pose = target_pose
-        self.goal.target_pose.header.frame_id = 'map'
-        self.goal.target_pose.header.stamp = rospy.Time.now()
+        self.goal.target_pose = target_stamp_pose
+        #self.goal.target_pose.header.frame_id = 'map'
+        #self.goal.target_pose.header.stamp = rospy.Time.now()
         
         # Let the user know where the robot is going next
         rospy.loginfo("Moving towards trash")
         
         # Start the robot toward the next location
         self.move_base.send_goal(self.goal)
-        
-        # How far away should the robot be from the object before it stops
-        distance_threshold = 1.0
-        
-        #  Wait till the distance from target is within 1m from the robot
-        while(self.get_distance_from_target(target_pose) > distance_threshold):
-        	pass
-        
-        # Stop moving the robot
-        self.move_base.cancel_goal()
 
-        # Trash is now within reach
-        rospy.loginfo("Trash within reach")
+         # Allow 1 minute to get there
+        finished_within_time = self.move_base.wait_for_result(rospy.Duration(60))
+        
+        # Check for success or failure
+        if not finished_within_time:
+            self.move_base.cancel_goal()
+            rospy.loginfo("Timed out achieving goal")
+        else:
+            state = self.move_base.get_state()
+            if state == GoalStatus.SUCCEEDED:
+                rospy.loginfo("Goal succeeded!")
+                rospy.loginfo("State:" + str(state))
+            else:
+              rospy.loginfo("Goal failed with error code: " + str(self.goal_states[state]))
+       
     
     def get_distance_from_target(self, target_pose):
     	# Get the latest available transform by passing time 0

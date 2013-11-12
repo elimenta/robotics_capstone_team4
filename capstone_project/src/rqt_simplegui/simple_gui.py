@@ -34,6 +34,7 @@ from sensor_msgs.msg import JointState
 from animation import AnimationPlayer
 from quad import Quad
 from room_navigator import RoomNavigator
+from gripper_markers import GripperMarkers
 
 class SimpleGUI(Plugin):
     
@@ -297,7 +298,7 @@ class SimpleGUI(Plugin):
         second_base_button_box.addWidget(self.create_pressed_button('v'))
         second_base_button_box.addWidget(self.create_pressed_button('>'))
         second_base_button_box.addWidget(self.create_button('Move to Bin'))
-        #second_base_button_box.addWidget(self.create_button('Move to Trash Test'))
+        second_base_button_box.addWidget(self.create_button('Move to Trash'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
         
@@ -340,6 +341,9 @@ class SimpleGUI(Plugin):
         
         # Move the torso all the way down
         self.torso_down()
+
+        # Launch tracking information
+        self.ARTracker = GripperMarkers()
 
         rospy.loginfo("Completed GUI initialization")
         
@@ -470,14 +474,20 @@ class SimpleGUI(Plugin):
             self.animPlay.play('3.0')
             '''
             self.roomNav.move_to_bin()
+            self.animPlay.left_poses = self.saved_animations['l_dispose'].left
+            self.animPlay.right_poses = self.saved_animations['l_dispose'].right
+            self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
+            self.animPlay.play('2.0')
 
-        elif('Move to Trash Test' == button_name):
-            rospy.loginfo('Testing move to trash')
-            self.animPlay.left_poses = self.saved_animations['left_tuck'].left
-            self.animPlay.right_poses = self.saved_animations['left_tuck'].right
-            self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
-            self.roomNav.move_to_trash_location()
+        elif('Move to Trash' == button_name):
+        	rospy.loginfo('Clicked the move to trash button')
+
+        	target_dest = self.ARTracker.get_marker_pose_in_frame('map')
+
+        	self.roomNav.move_to_trash_location(target_dest)
+
+        
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
