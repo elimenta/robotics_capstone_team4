@@ -34,6 +34,7 @@ from sensor_msgs.msg import JointState
 from animation import AnimationPlayer
 from quad import Quad
 from room_navigator import RoomNavigator
+from pick_and_place import *
 
 class SimpleGUI(Plugin):
     
@@ -148,6 +149,9 @@ class SimpleGUI(Plugin):
 
         # Navigation functionality initialization
         self.roomNav = RoomNavigator()
+
+        # Detection and pickup functionality
+        self.pap = PickAndPlaceManager()
         
         QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
         self.joint_sig.connect(self.joint_sig_cb)
@@ -179,7 +183,7 @@ class SimpleGUI(Plugin):
         # Shows what the robot says
         speech_box = QtGui.QHBoxLayout()
 
-        self.speech_label = QtGui.QLabel('Robot has not spoken yet') #
+        self.speech_label = QtGui.QLabel('Robot has not spoken yet') 
         palette = QtGui.QPalette()
         palette.setColor(QtGui.QPalette.Foreground,QtCore.Qt.blue)
         self.speech_label.setPalette(palette) #
@@ -297,7 +301,7 @@ class SimpleGUI(Plugin):
         second_base_button_box.addWidget(self.create_pressed_button('v'))
         second_base_button_box.addWidget(self.create_pressed_button('>'))
         second_base_button_box.addWidget(self.create_button('Move to Bin'))
-        #second_base_button_box.addWidget(self.create_button('Move to Trash Test'))
+        second_base_button_box.addWidget(self.create_button('Object Detect'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
         
@@ -476,13 +480,9 @@ class SimpleGUI(Plugin):
             self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
             self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
             self.animPlay.play('2.0')
-        elif('Move to Trash Test' == button_name):
-            rospy.loginfo('Testing move to trash')
-            self.animPlay.left_poses = self.saved_animations['left_tuck'].left
-            self.animPlay.right_poses = self.saved_animations['left_tuck'].right
-            self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
-            self.roomNav.move_to_trash_location()
+        elif('Object Detect' == button_name):
+        	self.pap.detect_objects()
+          
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
