@@ -119,7 +119,7 @@ class PickAndPlaceManager():
         else:
             rospy.logerr("tabletop detection failed too many times. Returning.")
             return ([], None)
-
+        '''
         col_req = TabletopCollisionMapProcessingRequest()
         col_req.reset_collision_models = 0
         col_req.reset_attached_models = 0
@@ -141,5 +141,5 @@ class PickAndPlaceManager():
         #save the new detected table (already in collision map)
         #self.detected_table = table
         #self.update_table_info(update_place_rectangle)
-
-        rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
+        '''
+        rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
