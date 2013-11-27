@@ -30,10 +30,13 @@ import tabletop_collision_map_processing.collision_map_interface as collision_ma
 import object_manipulator.draw_functions as draw_functions
 from object_manipulator.convert_functions import *
 from arm_navigation_msgs.msg import JointConstraint, PositionConstraint, OrientationConstraint, ArmNavigationErrorCodes, AllowedContactSpecification, Constraints
+from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Point, Quaternion, Twist
 from tf_conversions import posemath
+from tf import TransformListener
+from room_navigator import *
 
 class PickAndPlaceManager():
-    def __init__(self):
+    def __init__(self, tf_listener, roomNav):
 
         # Services used for object detection
         self.grasper_detect_name = 'object_detection'
@@ -56,40 +59,10 @@ class PickAndPlaceManager():
         self.collision_map_processing_srv = rospy.ServiceProxy(self.collision_map_processing_name, TabletopCollisionMapProcessing)
         self.bounding_box_srv = rospy.ServiceProxy(self.find_bounding_box_name, FindClusterBoundingBox)
 
+        self.tf_listener = tf_listener
+        self.roomNav = roomNav
+        self.detected_clusters = None
 
-
-        ####################### Extra
-        '''#initialize a collision map interface
-        self.collision_map_interface = collision_map_interface.CollisionMapInterface()
-
-        #the objects held in the each arm (None if no object)
-        self.held_objects = [None]*2
-
-        #temporary height and dist until we get a table detection
-        self.table_front_edge_x = rospy.get_param("~default_table_front_edge_x", .33)
-        self.table_height = rospy.get_param("~default_table_height", .66)
-
-        #saved table and object detections
-        self.detected_table = None
-        self.additional_tables = []
-        self.detected_objects = []
-
-        #dictionary of grasp/place error codes
-        #(SUCCESS, UNFEASIBLE, FAILED, ERROR, MOVE_ARM_STUCK, LIFT_FAILED)
-        self.result_code_dict = {}
-        for element in dir(ManipulationResult):
-            if element[0].isupper():
-                self.result_code_dict[eval('ManipulationResult.'+element)] = element
-
-        #dictionary of tabletop_object_detector error codes
-        #(NO_CLOUD_RECEIVED, NO_TABLE, OTHER_ERROR, SUCCESS)
-        self.tabletop_detection_result_dict = {}
-        for element in dir(TabletopDetectionResult):
-            if element[0].isupper():
-                self.tabletop_detection_result_dict[eval('TabletopDetectionResult.'+element)] = element
-
-        #name of the support surface's collision object
-        self.collision_support_surface_name = "table"'''
 
     ##call tabletop object detection and collision_map_processing
     #(detects table/objects and adds them to collision map)
@@ -99,7 +72,7 @@ class PickAndPlaceManager():
 
         det_req = TabletopDetectionRequest()
         det_req.return_clusters = 1
-        det_req.return_models = 0 
+        det_req.return_models = 1 
         #det_req.num_models = num_models
 
         #call tabletop detection, get a detection result (attempt 3 times)
@@ -114,32 +87,53 @@ class PickAndPlaceManager():
                 rospy.loginfo("tabletop detection reports success")
                 break
             else:
-                rospy.logerr("tabletop detection failed with error %s, trying again"%\
-                                 self.tabletop_detection_result_dict[det_res.detection.result])
+                rospy.logerr("tabletop detection failed with error %s, trying again"%det_res.detection.result)
         else:
             rospy.logerr("tabletop detection failed too many times. Returning.")
             return ([], None)
-        '''
-        col_req = TabletopCollisionMapProcessingRequest()
-        col_req.reset_collision_models = 0
-        col_req.reset_attached_models = 0
-        col_req.detection_result = det_res.detection
-        col_req.desired_frame = 'base_link'
 
-        #call collision map processing to add the detected objects to the collision map
-        #and get back a list of GraspableObjects
-        try:
-            col_res = self.collision_map_processing_srv(col_req)
-        except rospy.ServiceException, e:
-            rospy.logerr("error when calling %s: %s"%(self.collision_map_processing_name, e))
-            self.throw_exception()
-            return ([], None)
-
-        table = det_res.detection.table
-        self.collision_support_surface_name = col_res.collision_support_surface_name
-
-        #save the new detected table (already in collision map)
-        #self.detected_table = table
-        #self.update_table_info(update_place_rectangle)
-        '''
+        self.detected_clusters = det_res.detection.clusters
         rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
+        #rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
+
+        # Print out the points for the first cluster
+        rospy.loginfo("Coordinate frame: " + str(det_res.detection.clusters[0].header.frame_id))
+        points = det_res.detection.clusters[0].points
+
+        total_x = 0
+        total_y = 0
+        total_z = 0
+
+        for point in points:
+            total_x += point.x 
+            total_y += point.y
+            total_z += point.z
+
+        rospy.loginfo("Avrg x: " + str(total_x / len(points)))
+        rospy.loginfo("Avrg y: " + str(total_y / len(points)))
+        rospy.loginfo("Avrg z: " + str(total_z / len(points)))
+
+        camera_point_pose = Pose()
+        camera_point_pose.position.x = total_x / len(points)
+        camera_point_pose.position.y = total_y / len(points)
+        camera_point_pose.position.z = total_z / len(points)
+
+        map_point = self.transform(camera_point_pose, det_res.detection.clusters[0].header.frame_id, '/base_link')
+        map_point.position.x -= 0.40
+        map_point = self.transform(map_point, '/base_link', '/map')
+        rospy.loginfo(str(map_point))
+        
+        self.roomNav.move_to_trash_location(map_point)
+
+    def transform(self, pose, from_frame, to_frame):
+        pose_stamped = PoseStamped()
+        try:
+            common_time = self.tf_listener.getLatestCommonTime(from_frame, to_frame)
+            pose_stamped.header.stamp = common_time
+            pose_stamped.header.frame_id = from_frame
+            pose_stamped.pose = pose
+            rel_pose = self.tf_listener.transformPose(to_frame, pose_stamped)
+            return rel_pose.pose
+        except:
+            rospy.logwarn('TF exception during transform.')
+            return None

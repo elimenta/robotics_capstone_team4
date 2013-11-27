@@ -35,6 +35,7 @@ from animation import AnimationPlayer
 from quad import Quad
 from room_navigator import RoomNavigator
 from pick_and_place import *
+from tf import TransformListener
 
 class SimpleGUI(Plugin):
     
@@ -150,8 +151,11 @@ class SimpleGUI(Plugin):
         # Navigation functionality initialization
         self.roomNav = RoomNavigator()
 
+
+        self._tf_listener = TransformListener()
+
         # Detection and pickup functionality
-        self.pap = PickAndPlaceManager()
+        self.pap = PickAndPlaceManager(self._tf_listener, self.roomNav)
         
         QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
         self.joint_sig.connect(self.joint_sig_cb)

@@ -4,7 +4,10 @@
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
 
   <!-- Launch for object detection and collision map processing -->
-  <include file="$(find capstone_project)/launch/interactive_manipulation.launch"/>
+  <arg name="sim" default="false" />
+  <include file="$(find capstone_project)/launch/interactive_manipulation.launch">
+    <arg name="sim" value="$(arg sim)" />
+  </include>
 
   <!-- 2D navigation -->
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
