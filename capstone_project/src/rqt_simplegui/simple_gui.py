@@ -487,17 +487,18 @@ class SimpleGUI(Plugin):
             self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
             self.animPlay.play('2.0')
         elif('Object Detect' == button_name):
-            '''
+            
             map_point = self.pap.detect_objects()
 
+            '''
             # Convert to base link and move towards the object 0.50m away
             map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
             map_point.pose.position.x -= 0.50
             map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
             self.roomNav.move_to_trash_location(map_point.pose)
-            '''
+            
             self.head_action(0, 0.4, 0.55)
-          
+            '''
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
