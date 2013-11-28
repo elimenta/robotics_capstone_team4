@@ -36,6 +36,7 @@ from quad import Quad
 from room_navigator import RoomNavigator
 from pick_and_place import *
 from tf import TransformListener
+from transformer import *
 
 class SimpleGUI(Plugin):
     
@@ -153,9 +154,10 @@ class SimpleGUI(Plugin):
 
 
         self._tf_listener = TransformListener()
+        self.animPlay = AnimationPlayer(None, None, None, None)
 
         # Detection and pickup functionality
-        self.pap = PickAndPlaceManager(self._tf_listener, self.roomNav)
+        self.pap = PickAndPlaceManager(self._tf_listener, self.roomNav, self.animPlay)
         
         QtGui.QToolTip.setFont(QtGui.QFont('SansSerif', 10))
         self.joint_sig.connect(self.joint_sig_cb)
@@ -313,7 +315,7 @@ class SimpleGUI(Plugin):
         self.animation_map = {}
         
         self.create_state = False
-        self.animPlay = AnimationPlayer(None, None, None, None)
+        
         
         self._widget.setObjectName('SimpleGUI')
         self._widget.setLayout(large_box)
@@ -485,7 +487,16 @@ class SimpleGUI(Plugin):
             self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
             self.animPlay.play('2.0')
         elif('Object Detect' == button_name):
-        	self.pap.detect_objects()
+            '''
+            map_point = self.pap.detect_objects()
+
+            # Convert to base link and move towards the object 0.50m away
+            map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
+            map_point.pose.position.x -= 0.50
+            map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
+            self.roomNav.move_to_trash_location(map_point.pose)
+            '''
+            self.head_action(0, 0.4, 0.55)
           
                     
     # gripper_type is either 'l' for left or 'r' for right

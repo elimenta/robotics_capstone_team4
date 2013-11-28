@@ -34,9 +34,10 @@ from geometry_msgs.msg import Pose, PoseWithCovarianceStamped, Point, Quaternion
 from tf_conversions import posemath
 from tf import TransformListener
 from room_navigator import *
+from transformer import *
 
 class PickAndPlaceManager():
-    def __init__(self, tf_listener, roomNav):
+    def __init__(self, tf_listener, roomNav, animation_player):
 
         # Services used for object detection
         self.grasper_detect_name = 'object_detection'
@@ -47,25 +48,17 @@ class PickAndPlaceManager():
         rospy.wait_for_service(self.grasper_detect_name)
         rospy.loginfo("grasp_executive: object_detection service found")
 
-        rospy.loginfo("grasp_executive: waiting for collision_map_processing service")
-        rospy.wait_for_service(self.collision_map_processing_name)
-        rospy.loginfo("grasp_executive: collision_map_processing service found")
-
-        rospy.loginfo("grasp_executive: waiting for find_cluster_bounding_box service")
-        rospy.wait_for_service(self.find_bounding_box_name)
-        rospy.loginfo("grasp_executive: find_cluster_bounding_box service found")
-
         self.grasper_detect_srv = rospy.ServiceProxy(self.grasper_detect_name, TabletopDetection)
         self.collision_map_processing_srv = rospy.ServiceProxy(self.collision_map_processing_name, TabletopCollisionMapProcessing)
         self.bounding_box_srv = rospy.ServiceProxy(self.find_bounding_box_name, FindClusterBoundingBox)
 
         self.tf_listener = tf_listener
         self.roomNav = roomNav
+        self.animPlay = animation_player
         self.detected_clusters = None
 
 
-    ##call tabletop object detection and collision_map_processing
-    #(detects table/objects and adds them to collision map)
+    #Returns the location of the nearest object
     def detect_objects(self):
 
         rospy.loginfo("calling tabletop detection")
@@ -96,44 +89,37 @@ class PickAndPlaceManager():
         rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
         #rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
 
-        # Print out the points for the first cluster
-        rospy.loginfo("Coordinate frame: " + str(det_res.detection.clusters[0].header.frame_id))
-        points = det_res.detection.clusters[0].points
+        if(len(det_res.detection.clusters) > 0):
+            # Print out the points for the first cluster
+            rospy.loginfo("Coordinate frame: " + str(det_res.detection.clusters[0].header.frame_id))
+            points = det_res.detection.clusters[0].points
 
-        total_x = 0
-        total_y = 0
-        total_z = 0
+            total_x = 0
+            total_y = 0
+            total_z = 0
 
-        for point in points:
-            total_x += point.x 
-            total_y += point.y
-            total_z += point.z
+            for point in points:
+                total_x += point.x 
+                total_y += point.y
+                total_z += point.z
 
-        rospy.loginfo("Avrg x: " + str(total_x / len(points)))
-        rospy.loginfo("Avrg y: " + str(total_y / len(points)))
-        rospy.loginfo("Avrg z: " + str(total_z / len(points)))
+            rospy.loginfo("Avrg x: " + str(total_x / len(points)))
+            rospy.loginfo("Avrg y: " + str(total_y / len(points)))
+            rospy.loginfo("Avrg z: " + str(total_z / len(points)))
 
-        camera_point_pose = Pose()
-        camera_point_pose.position.x = total_x / len(points)
-        camera_point_pose.position.y = total_y / len(points)
-        camera_point_pose.position.z = total_z / len(points)
+            camera_point_pose = Pose()
+            camera_point_pose.position.x = total_x / len(points)
+            camera_point_pose.position.y = total_y / len(points)
+            camera_point_pose.position.z = total_z / len(points)
+            '''
+            map_point = self.transform(camera_point_pose, det_res.detection.clusters[0].header.frame_id, '/base_link')
+            map_point.position.x -= 0.50
+            map_point = self.transform(map_point, '/base_link', '/map')
+            '''
 
-        map_point = self.transform(camera_point_pose, det_res.detection.clusters[0].header.frame_id, '/base_link')
-        map_point.position.x -= 0.40
-        map_point = self.transform(map_point, '/base_link', '/map')
-        rospy.loginfo(str(map_point))
-        
-        self.roomNav.move_to_trash_location(map_point)
-
-    def transform(self, pose, from_frame, to_frame):
-        pose_stamped = PoseStamped()
-        try:
-            common_time = self.tf_listener.getLatestCommonTime(from_frame, to_frame)
-            pose_stamped.header.stamp = common_time
-            pose_stamped.header.frame_id = from_frame
-            pose_stamped.pose = pose
-            rel_pose = self.tf_listener.transformPose(to_frame, pose_stamped)
-            return rel_pose.pose
-        except:
-            rospy.logwarn('TF exception during transform.')
+            map_point = Transformer.transform(self.tf_listener, camera_point_pose, det_res.detection.clusters[0].header.frame_id, '/map')
+            rospy.loginfo(str(map_point.pose))
+            
+            return map_point
+        else:
             return None

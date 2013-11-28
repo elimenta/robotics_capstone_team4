@@ -364,7 +364,7 @@
   </include>
   
   <!-- Interactive Object Detection incl. sensor data assembler -->
-  <include file="$(find capstone_project)/launch/pr2_interactive_object_detection_robot.launch">
+  <include file="$(find pr2_interactive_object_detection)/launch/pr2_interactive_object_detection_robot.launch">
     <arg name="stereo" value="$(arg stereo)"/>
     <arg name="cvfh" value="$(arg cvfh)"/>
     <arg name="tod" value="$(arg tod)"/>
