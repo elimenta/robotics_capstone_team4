@@ -322,7 +322,7 @@ class SimpleGUI(Plugin):
         context.add_widget(self._widget)
 
         # Look straight and down when launched
-        self.head_x = 1.5
+        self.head_x = 1.0
         self.head_y = 0.0
         self.head_z = 0.5
         self.head_action(self.head_x, self.head_y, self.head_z)
@@ -349,7 +349,7 @@ class SimpleGUI(Plugin):
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
         # Move the torso all the way down
-        self.torso_down(True)
+        #self.torso_down(True)
 
         rospy.loginfo("Completed GUI initialization")
         
@@ -473,7 +473,7 @@ class SimpleGUI(Plugin):
         elif('Move to Bin' == button_name):
             self.move_to_bin_action()
         elif('Object Detect' == button_name):
-            
+            '''
             map_point = self.pap.detect_objects()
 
             # Convert to base link and move towards the object 0.50m away
@@ -481,25 +481,6 @@ class SimpleGUI(Plugin):
             map_point.pose.position.x -= 0.60
             map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
             self.roomNav.move_to_trash_location(map_point.pose)
-
-            #tell the action client that we want to spin a thread by default
-            ac =  SimpleActionClient("move_base", MoveBaseAction)
-
-
-            goal = MoveBaseGoal()
-            goal.target_pose.pose.position.y = 0.20
-            goal.target_pose.pose.orientation.w = map_point.pose.orientation.w
-            goal.target_pose.header.frame_id = 'base_link'
-
-            ac.send_goal(goal)
-
-            ac.wait_for_result(rospy.Duration(5))
-
-            '''
-              if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
-                ROS_INFO("Hooray, the base moved 1 meter forward");
-              else
-                ROS_INFO("The base failed to move forward 1 meter for some reason");
             '''
             
             # Move head to look at the object, this will wait for a result
@@ -516,11 +497,12 @@ class SimpleGUI(Plugin):
 
             # Move head back to look forward
             # Move head to look at the object, this will wait for a result
-            self.head_action(1.5, 0.0, 0.55, True)
-
+            self.head_action(1.0, 0.0, 0.55, True)
+            
+            '''
             # Move to bin
             self.move_to_bin_action()
-
+            '''
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal

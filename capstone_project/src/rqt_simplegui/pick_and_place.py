@@ -229,7 +229,6 @@ class PickAndPlaceManager():
         rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
         #rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
 
-
         col_req = TabletopCollisionMapProcessingRequest()
         col_req.reset_collision_models = 1
         col_req.reset_attached_models = 1
@@ -289,6 +288,7 @@ class PickAndPlaceManager():
         rospy.loginfo("sent pickup goal")
         # wait for the head movement to finish before we try to detect and pickup an object
         finished_within_time = pickup_client.wait_for_result(rospy.Duration(30))
+        return finished_within_time
         # Check for success or failure
         '''if not finished_within_time:
             pickup_client.cancel_goal()
