@@ -473,18 +473,18 @@ class SimpleGUI(Plugin):
         elif('Move to Bin' == button_name):
             self.move_to_bin_action()
         elif('Object Detect' == button_name):
-            '''
+            
             map_point = self.pap.detect_objects()
 
             # Convert to base link and move towards the object 0.50m away
             map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
-            map_point.pose.position.x -= 0.60
+            map_point.pose.position.x -= 0.70
             map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
             self.roomNav.move_to_trash_location(map_point.pose)
-            '''
             
-            # Initial point of where robot is
-            rate = rospy.Rate(20)
+            
+            '''This part of the code strafes the robot left to get closer to the object'''
+            rate = rospy.Rate(10)
             position = Point()
             move_cmd = Twist()
             move_cmd.linear.y = 0.25
@@ -502,6 +502,7 @@ class SimpleGUI(Plugin):
                    rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
                    rospy.signal_shutdown("tf Exception")
             
+            # Get current position
             position = self.get_odom()
             
             x_start = position.x
@@ -509,11 +510,11 @@ class SimpleGUI(Plugin):
             
             # Distance travelled
             distance = 0
-            goal_distance = 1.0
+            goal_distance = 0.25
             rospy.loginfo("Strafing left")
             # Enter the loop to move along a side
             while distance < goal_distance:
-            
+                rospy.loginfo("Distance is at " + str(distance))
                 # Publish the Twist message and sleep 1 cycle
                 self.base_action(0, 0.25, 0, 0, 0, 0)
                 rate.sleep()
@@ -525,7 +526,7 @@ class SimpleGUI(Plugin):
                 distance = abs(position.y - y_start)
                
 
-            '''
+            
             # Move head to look at the object, this will wait for a result
             self.head_action(0, 0.4, 0.55, True)
 
@@ -541,7 +542,7 @@ class SimpleGUI(Plugin):
             # Move head back to look forward
             # Move head to look at the object, this will wait for a result
             self.head_action(1.0, 0.0, 0.55, True)
-            '''
+            
             '''
             # Move to bin
             self.move_to_bin_action()
