@@ -478,10 +478,29 @@ class SimpleGUI(Plugin):
 
             # Convert to base link and move towards the object 0.50m away
             map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
-            map_point.pose.position.x -= 0.40
+            map_point.pose.position.x -= 0.60
             map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
             self.roomNav.move_to_trash_location(map_point.pose)
 
+            #tell the action client that we want to spin a thread by default
+            ac =  SimpleActionClient("move_base", MoveBaseAction)
+
+
+            goal = MoveBaseGoal()
+            goal.target_pose.pose.position.y = 0.20
+            goal.target_pose.pose.orientation.w = map_point.pose.orientation.w
+            goal.target_pose.header.frame_id = 'base_link'
+
+            ac.send_goal(goal)
+
+            ac.wait_for_result(rospy.Duration(5))
+
+            '''
+              if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+                ROS_INFO("Hooray, the base moved 1 meter forward");
+              else
+                ROS_INFO("The base failed to move forward 1 meter for some reason");
+            '''
             
             # Move head to look at the object, this will wait for a result
             self.head_action(0, 0.4, 0.55, True)
