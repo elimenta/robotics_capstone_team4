@@ -232,7 +232,7 @@ class SimpleGUI(Plugin):
         
         large_box.addItem(QtGui.QSpacerItem(0,25)) 
         
-         # Buttons for animation
+        # Buttons for animation
         animation_box = QtGui.QHBoxLayout()
         play_anim_label = QtGui.QLabel('Select Animation:')
         play_anim_label.setFixedWidth(self.prompt_width)
@@ -483,6 +483,49 @@ class SimpleGUI(Plugin):
             self.roomNav.move_to_trash_location(map_point.pose)
             '''
             
+            # Initial point of where robot is
+            rate = rospy.Rate(20)
+            position = Point()
+            move_cmd = Twist()
+            move_cmd.linear.y = 0.25
+            odom_frame = '/odom_combined'
+            
+            # Find out if the robot uses /base_link or /base_footprint
+            try:
+                self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
+                self.base_frame = '/base_footprint'
+            except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+               try:
+                   self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
+                   self.base_frame = '/base_link'
+               except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+                   rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
+                   rospy.signal_shutdown("tf Exception")
+            
+            position = self.get_odom()
+            
+            x_start = position.x
+            y_start = position.y
+            
+            # Distance travelled
+            distance = 0
+            goal_distance = 1.0
+            rospy.loginfo("Strafing left")
+            # Enter the loop to move along a side
+            while distance < goal_distance:
+            
+                # Publish the Twist message and sleep 1 cycle
+                self.base_action(0, 0.25, 0, 0, 0, 0)
+                rate.sleep()
+                
+                # Get the current position
+                position = self.get_odom()
+                
+                # Compute the Euclidean distance from the start
+                distance = abs(position.y - y_start)
+               
+
+            '''
             # Move head to look at the object, this will wait for a result
             self.head_action(0, 0.4, 0.55, True)
 
@@ -498,11 +541,20 @@ class SimpleGUI(Plugin):
             # Move head back to look forward
             # Move head to look at the object, this will wait for a result
             self.head_action(1.0, 0.0, 0.55, True)
-            
+            '''
             '''
             # Move to bin
             self.move_to_bin_action()
             '''
+    def get_odom(self):
+        # Get the current transform between the odom and base frames
+        try:
+            trans = self._tf_listener.lookupTransform('/odom_combined', self.base_frame, rospy.Time(0))
+        except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+            rospy.loginfo("TF Exception")
+            return
+            
+        return Point(trans[0][0],trans[0][1],trans[0][2])
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
