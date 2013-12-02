@@ -321,10 +321,10 @@ class SimpleGUI(Plugin):
         self._widget.setLayout(large_box)
         context.add_widget(self._widget)
 
-        # Look straight when launched
-        self.head_x = 1.0
+        # Look straight and down when launched
+        self.head_x = 1.5
         self.head_y = 0.0
-        self.head_z = 1.3
+        self.head_z = 0.5
         self.head_action(self.head_x, self.head_y, self.head_z)
 
         # Set grippers to closed on initialization
@@ -349,7 +349,7 @@ class SimpleGUI(Plugin):
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
         # Move the torso all the way down
-        self.torso_down()
+        self.torso_down(True)
 
         rospy.loginfo("Completed GUI initialization")
         
@@ -471,34 +471,37 @@ class SimpleGUI(Plugin):
                 self.pose_name_temp.setText('')  
                 
         elif('Move to Bin' == button_name):
-            rospy.loginfo('Clicked the move to bin button')
-            '''
-            self.animPlay.left_poses = self.saved_animations['left_tuck'].left
-            self.animPlay.right_poses = self.saved_animations['left_tuck'].right
-            self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
-            self.animPlay.play('3.0')
-            '''
-            self.roomNav.move_to_bin()
-            self.roomNav.move_to_bin()
-            self.animPlay.left_poses = self.saved_animations['l_dispose'].left
-            self.animPlay.right_poses = self.saved_animations['l_dispose'].right
-            self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
-            self.animPlay.play('2.0')
+            self.move_to_bin_action()
         elif('Object Detect' == button_name):
             
             map_point = self.pap.detect_objects()
 
-            '''
             # Convert to base link and move towards the object 0.50m away
             map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
-            map_point.pose.position.x -= 0.50
+            map_point.pose.position.x -= 0.40
             map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
             self.roomNav.move_to_trash_location(map_point.pose)
+
             
-            self.head_action(0, 0.4, 0.55)
-            '''
+            # Move head to look at the object, this will wait for a result
+            self.head_action(0, 0.4, 0.55, True)
+
+            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
+            self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
+            self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
+            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
+            self.animPlay.play('3.0')
+
+            self.pap.detect_and_pickup()
+
+            # Move head back to look forward
+            # Move head to look at the object, this will wait for a result
+            self.head_action(1.5, 0.0, 0.55, True)
+
+            # Move to bin
+            self.move_to_bin_action()
+
                     
     # gripper_type is either 'l' for left or 'r' for right
     # gripper position is the position as a parameter to the gripper goal
@@ -534,22 +537,76 @@ class SimpleGUI(Plugin):
         base_publisher.publish(twist_msg)
 
     # Moves the torso of the robot down to its maximum
-    def torso_down(self):
+    def torso_down(self, wait = False):
     	self.torso_client = SimpleActionClient('/torso_controller/position_joint_action', SingleJointPositionAction)
     	torso_goal = SingleJointPositionGoal()
     	torso_goal.position = 0.0
     	torso_goal.min_duration = rospy.Duration(2.0)
     	torso_goal.max_velocity = 1.0
     	self.torso_client.send_goal(torso_goal)
+        if wait:
+            # wait for the head movement to finish before we try to detect and pickup an object
+            finished_within_time = self.torso_client.wait_for_result(rospy.Duration(15))
+            # Check for success or failure
+            if not finished_within_time:
+                self.torso_client.cancel_goal()
+                rospy.loginfo("Timed out achieving torso movement goal")
+            else:
+                state = self.torso_client.get_state()
+                if state == GoalStatus.SUCCEEDED:
+                    rospy.loginfo("Torso movement goal succeeded!")
+                    rospy.loginfo("State:" + str(state))
+                else:
+                  rospy.loginfo("Torso movement goal failed with error code: " + str(state))
 
-    def head_action(self, x, y, z):
+    def head_action(self, x, y, z, wait = False):
         name_space = '/head_traj_controller/point_head_action'
         head_client = SimpleActionClient(name_space, PointHeadAction)
         head_goal = PointHeadGoal()
         head_goal.target.header.frame_id = 'base_link'
         head_goal.min_duration = rospy.Duration(1.0)
         head_goal.target.point = Point(x, y, z)
-        head_client.send_goal(head_goal)    
+        head_client.send_goal(head_goal)
+        if wait:
+            # wait for the head movement to finish before we try to detect and pickup an object
+            finished_within_time = head_client.wait_for_result(rospy.Duration(5))
+            # Check for success or failure
+            if not finished_within_time:
+                head_client.cancel_goal()
+                rospy.loginfo("Timed out achieving head movement goal")
+            else:
+                state = head_client.get_state()
+                if state == GoalStatus.SUCCEEDED:
+                    rospy.loginfo("Head movement goal succeeded!")
+                    rospy.loginfo("State:" + str(state))
+                else:
+                  rospy.loginfo("Head movement goal failed with error code: " + str(self.goal_states[state]))
+
+    def move_to_bin_action(self):
+        # First tuck arms
+        rospy.loginfo('Left tuck arms')
+        self.animPlay.left_poses = self.saved_animations['left_tuck'].left
+        self.animPlay.right_poses = self.saved_animations['left_tuck'].right
+        self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
+        self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
+        self.animPlay.play('3.0')
+        # Move to the bin
+        rospy.loginfo('Clicked the move to bin button')
+        self.roomNav.move_to_bin()
+        # Throw the trash away
+        rospy.loginfo('Throwing trash away with left arm')
+        self.animPlay.left_poses = self.saved_animations['l_dispose'].left
+        self.animPlay.right_poses = self.saved_animations['l_dispose'].right
+        self.animPlay.left_gripper_states = self.saved_animations['l_dispose'].left_gripper
+        self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
+        self.animPlay.play('2.0')
+        # Tuck arms again
+        rospy.loginfo('Left tuck arms')
+        self.animPlay.left_poses = self.saved_animations['left_tuck'].left
+        self.animPlay.right_poses = self.saved_animations['left_tuck'].right
+        self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
+        self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
+        self.animPlay.play('3.0')
             
     def shutdown_plugin(self):
         # TODO unregister all publishers here
