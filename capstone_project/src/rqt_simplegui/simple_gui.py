@@ -507,10 +507,14 @@ class SimpleGUI(Plugin):
         elif('Object Detect' == button_name):
             self.pick_and_move_trash_action()
             
-    def pick_and_move_trash_action(self):
-        self.head_action(1.0, 0, -0.50, True)
-        map_point = self.pap.detect_objects()
+    def pick_and_move_trash_action(self, map_point = None):
+        if map_point == None:
+            self.head_action(1.0, 0, -0.50, True)
+            map_point = self.pap.detect_objects()
 
+        if map_point == None:
+            return
+        
         # Convert to base link and move towards the object 0.50m away
         map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
 
