@@ -210,9 +210,8 @@ class PickAndPlaceManager():
         rospy.loginfo("sent pickup goal")
         # wait for the head movement to finish before we try to detect and pickup an object
         finished_within_time = pickup_client.wait_for_result(rospy.Duration(30))
-        return finished_within_time
-        # Check for success or failure
-        '''if not finished_within_time:
+
+        if not finished_within_time:
             pickup_client.cancel_goal()
             rospy.loginfo("Timed out achieving pickup goal")
         else:
@@ -221,5 +220,9 @@ class PickAndPlaceManager():
                 rospy.loginfo("Pickup goal succeeded!")
                 rospy.loginfo("State:" + str(state))
             else:
-              rospy.loginfo("Pickup goal failed with error code: " + str(self.goal_states[state]))
-        '''
+              rospy.loginfo("Pickup goal failed with error code: " + str(state))
+              return false
+        
+
+        return true        # Check for success or failure
+

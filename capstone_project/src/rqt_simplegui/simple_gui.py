@@ -587,16 +587,18 @@ class SimpleGUI(Plugin):
         self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
         self.animPlay.play('3.0')
 
-        
-        self.pap.detect_and_pickup()
-
-        # Move head back to look forward
-        # Move head to look at the object, this will wait for a result
-        self.head_action(1.0, 0.0, 0.55, True)
-        
+        for i in range (0,3):
+            success = self.pap.detect_and_pickup()
+            # Move head back to look forward
+            # Move head to look at the object, this will wait for a result
+            self.head_action(1.0, 0.0, 0.55, True)
         
         # Move to bin
         self.move_to_bin_action()
+            if success:
+                break
+
+
     
     def get_odom(self):
         # Get the current transform between the odom and base frames
