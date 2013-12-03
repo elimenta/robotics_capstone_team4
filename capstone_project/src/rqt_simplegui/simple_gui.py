@@ -350,7 +350,7 @@ class SimpleGUI(Plugin):
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
         # Move the torso all the way down
-        self.torso_down(True)
+        # self.torso_down(True)
 
         # Autonomous navigation stuff
         '''
