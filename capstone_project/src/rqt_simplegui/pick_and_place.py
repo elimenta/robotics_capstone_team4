@@ -151,6 +151,7 @@ class PickAndPlaceManager():
         rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
         #rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
 
+
         if(len(det_res.detection.clusters) > 0):
             col_req = TabletopCollisionMapProcessingRequest()
             col_req.reset_collision_models = 1
@@ -167,6 +168,30 @@ class PickAndPlaceManager():
                 self.throw_exception()
                 return (None)
 
+            min_dist = float("inf")
+            min_index = 0
+            index = 0 
+
+            for cluster in det_res.detection.clusters:
+                points = cluster.points
+
+                total_x = 0
+                total_y = 0
+
+                for point in points:
+                    total_x += point.x 
+                    total_y += point.y
+                
+                x_dist = total_x / len(points)
+                y_dist = total_y / len(points)
+
+                dist = sqrt(pow(x_dist,2) + pow(y_dist, 2))
+                
+                if(dist < min_dist):
+                    dist = min_dist
+                    min_index = index
+
+                index += 1
 
 
             pickup_client = SimpleActionClient("/object_manipulator/object_manipulator_pickup", PickupAction)
@@ -175,7 +200,7 @@ class PickAndPlaceManager():
             rospy.loginfo("Calling the pickup action")
             pickup_goal = PickupGoal()
 
-            pickup_goal.target = col_res.graspable_objects[0];
+            pickup_goal.target = col_res.graspable_objects[min_index];
             
             #pass the name that the object has in the collision environment
             #this name was also returned by the collision map processor
