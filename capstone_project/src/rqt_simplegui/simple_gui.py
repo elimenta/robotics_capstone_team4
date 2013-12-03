@@ -352,6 +352,18 @@ class SimpleGUI(Plugin):
         # Move the torso all the way down
         #self.torso_down(True)
 
+        # Autonomous navigation stuff
+        self.locations = [Pose(Point(2.48293590546, 3.90075874329, 0.000), Quaternion(0.000, 0.000, -0.783917630973, 0.620864838632)),
+                         Pose(Point(3.70106744766, 0.304672241211, 0.000), Quaternion(0.000, 0.000, 0.950186880196, -0.311680754463)),
+                         Pose(Point(3.09685325623, 1.36078500748, 0.000), Quaternion(0.000, 0.000, 0.959508657194, -0.281679137975)),
+                         Pose(Point(2.55368804932, 2.090487957, 0.000), Quaternion(0.000, 0.000, 0.961630879526, -0.274346590179)),
+                         Pose(Point(1.28060531616, 1.52380752563, 0.000), Quaternion(0.000, 0.000, 0.946345258806, -0.323157316388)),
+                         Pose(Point(2.11048603058, 0.420155525208, 0.000), Quaternion(0.000, 0.000, 0.945222393391, -0.326427062346)),
+                         Pose(Point(2.82733058929, -0.739856719971, 0.000), Quaternion(0.000, 0.000, 0.945473998362, -0.325697587373)),
+                         Pose(Point(1.29184818268, -1.90485572815, 0.000), Quaternion(0.000, 0.000, 0.942275557345, -0.334838429739)),
+                         Pose(Point(0.722846984863, -1.0921459198, 0.000), Quaternion(0.000, 0.000, 0.949330143731, -0.314280572424))]
+        self.index = 1;
+
         rospy.loginfo("Completed GUI initialization")
         
     # Event for when text box is changed
@@ -475,98 +487,145 @@ class SimpleGUI(Plugin):
             self.move_to_bin_action()
         elif('Autonomous Navigation' == button_name):
             rospy.loginfo("STARTING AUTONOMOUS MODE")
-            locations = [Pose(Point(2.55368804932, 2.090487957, 0.000), Quaternion(0.000, 0.000, 0.961630879526, -0.274346590179)),
-                         Pose(Point(3.09685325623, 1.36078500748, 0.000), Quaternion(0.000, 0.000, 0.959508657194, -0.281679137975)),
-                         Pose(Point(3.70106744766, 0.304672241211, 0.000), Quaternion(0.000, 0.000, 0.950186880196, -0.311680754463)),
-                         Pose(Point(1.28060531616, 1.52380752563, 0.000), Quaternion(0.000, 0.000, 0.946345258806, -0.323157316388)),
-                         Pose(Point(2.11048603058, 0.420155525208, 0.000), Quaternion(0.000, 0.000, 0.945222393391, -0.326427062346)),
-                         Pose(Point(2.82733058929, -0.739856719971, 0.000), Quaternion(0.000, 0.000, 0.945473998362, -0.325697587373)),
-                         Pose(Point(1.29184818268, -1.90485572815, 0.000), Quaternion(0.000, 0.000, 0.942275557345, -0.334838429739)),
-                         Pose(Point(0.722846984863, -1.0921459198, 0.000), Quaternion(0.000, 0.000, 0.949330143731, -0.314280572424))]
-            index = 0;
+            
 
-            while(index < len(locations)):
-                self.roomNav.move_to_trash_location(locations[index])
-                index++
+            while(self.index < len(locations)):
+                self.roomNav.move_to_trash_location(self.locations[self.index])
+                self.index += 1
                 '''
                 self.head_action(1.0, 0, 0.4)
                 # Returns Nonce if nothing, and the point of the first object it sees otherwise
                 map_point = self.pap.detect_objects()
                 
                 if(map_point == None):
-                    index++
+                    index += 1
                 else:
                     self.pick_and_move_trash_action
                 '''
             rospy.loginfo("FINISHED AUTONOMOUS MODE")
             
         elif('Object Detect' == button_name):
-            self.pick_and_move_trash_action
+            self.pick_and_move_trash_action()
             
     def pick_and_move_trash_action(self):
         map_point = self.pap.detect_objects()
 
         # Convert to base link and move towards the object 0.50m away
         map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
-        map_point.pose.position.x -= 0.70
-        map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
-        self.roomNav.move_to_trash_location(map_point.pose)
-        
-        
-        '''This part of the code strafes the robot left to get closer to the object'''
-        rate = rospy.Rate(10)
-        position = Point()
-        move_cmd = Twist()
-        move_cmd.linear.y = 0.25
-        odom_frame = '/odom_combined'
-        
-        # Find out if the robot uses /base_link or /base_footprint
-        try:
-            self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
-            self.base_frame = '/base_footprint'
-        except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-           try:
-               self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
-               self.base_frame = '/base_link'
-           except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-               rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
-               rospy.signal_shutdown("tf Exception")
-        
-        # Get current position
-        position = self.get_odom()
-        
-        x_start = position.x
-        y_start = position.y
-        
-        # Distance travelled
-        distance = 0
-        goal_distance = 0.25
-        rospy.loginfo("Strafing left")
-        # Enter the loop to move along a side
-        while distance < goal_distance:
-            rospy.loginfo("Distance is at " + str(distance))
-            # Publish the Twist message and sleep 1 cycle
-            self.base_action(0, 0.25, 0, 0, 0, 0)
-            rate.sleep()
+
+        if(map_point.pose.position.x > 0.8):
+            rospy.loginfo("Object is " + str (map_point.pose.position.x) + " away")
+            '''
+            if(map_point.pose.position.x < 0.8):
+                self.roomNav.move_to_trash_location(self.locations[self.index - 1])
+            '''
+            map_point.pose.position.x -= 0.70
+            map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
+            self.roomNav.move_to_trash_location(map_point.pose)
             
-            # Get the current position
+            '''This part of the code strafes the robot left to get closer to the object'''
+            rate = rospy.Rate(10)
+            position = Point()
+            move_cmd = Twist()
+            move_cmd.linear.y = 0.25
+            odom_frame = '/odom_combined'
+            
+            # Find out if the robot uses /base_link or /base_footprint
+            try:
+                self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
+                self.base_frame = '/base_footprint'
+            except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+               try:
+                   self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
+                   self.base_frame = '/base_link'
+               except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+                   rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
+                   rospy.signal_shutdown("tf Exception")
+            
+            # Get current position
             position = self.get_odom()
             
-            # Compute the Euclidean distance from the start
-            distance = abs(position.y - y_start)
-           
+            x_start = position.x
+            y_start = position.y
+            
+            # Distance travelled
+            distance = 0
+            goal_distance = 0.25
+            rospy.loginfo("Strafing left")
+            # Enter the loop to move along a side
+            while distance < goal_distance:
+                rospy.loginfo("Distance is at " + str(distance))
+                # Publish the Twist message and sleep 1 cycle
+                self.base_action(0, 0.25, 0, 0, 0, 0)
+                rate.sleep()
+                
+                # Get the current position
+                position = self.get_odom()
+                
+                # Compute the Euclidean distance from the start
+                distance = abs(position.y - y_start) 
 
         
-        # Move head to look at the object, this will wait for a result
-        self.head_action(0, 0.4, 0.55, True)
+            # Move head to look at the object, this will wait for a result
+            self.head_action(0, 0.4, 0.55, True)
 
-        # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
-        self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
-        self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
-        self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
-        self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
-        self.animPlay.play('3.0')
+            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
+            self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
+            self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
+            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
+            self.animPlay.play('3.0')
 
+        else:
+            rate = rospy.Rate(10)
+            position = Point()
+            move_cmd = Twist()
+            move_cmd.linear.y = 0.25
+            odom_frame = '/odom_combined'
+            
+            # Find out if the robot uses /base_link or /base_footprint
+            try:
+                self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
+                self.base_frame = '/base_footprint'
+            except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+               try:
+                   self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
+                   self.base_frame = '/base_link'
+               except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+                   rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
+                   rospy.signal_shutdown("tf Exception")
+            
+            # Get current position
+            position = self.get_odom()
+            
+            x_start = position.x
+            y_start = position.y
+            
+            # Distance travelled
+            distance = 0
+            goal_distance = map_point.pose.position.x - 0.5
+            rospy.loginfo("Strafing left")
+            # Enter the loop to move along a side
+            while distance < goal_distance:
+                rospy.loginfo("Distance is at " + str(distance))
+                # Publish the Twist message and sleep 1 cycle
+                self.base_action(0.25, 0.0, 0, 0, 0, 0)
+                rate.sleep()
+                
+                # Get the current position
+                position = self.get_odom()
+                
+                # Compute the Euclidean distance from the start
+                distance = abs(position.x - x_start)
+            
+            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
+            self.animPlay.left_poses = self.saved_animations['ready_pickup_side'].left
+            self.animPlay.right_poses = self.saved_animations['ready_pickup_side'].right
+            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup_side'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup_side'].right_gripper
+            self.animPlay.play('3.0')
+            
+        
         self.pap.detect_and_pickup()
 
         # Move head back to look forward
@@ -575,7 +634,7 @@ class SimpleGUI(Plugin):
         
         
         # Move to bin
-        self.move_to_bin_action()
+        #self.move_to_bin_action()
     
     def get_odom(self):
         # Get the current transform between the odom and base frames
