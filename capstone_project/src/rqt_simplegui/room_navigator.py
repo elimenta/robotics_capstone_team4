@@ -38,7 +38,7 @@ class RoomNavigator():
         self.locations = dict()
 
         #self.locations['trash'] = Pose(Point(-1.20214903355, -0.475028038025, 0.00), Quaternion(0, 0.000,  0.984054755563, -0.177865786634))
-        self.locations['trash'] = Pose(Point(2.99807882309, 2.43896222115, 0.00), Quaternion(0, 0.000,  0.260832015162, 0.965384203241))
+        self.locations['trash'] = Pose(Point(2.89807882309, 2.43896222115, 0.00), Quaternion(0, 0.000,  0.260832015162, 0.965384203241))
         
         # Publisher to manually control the robot (e.g. to stop it)
         self.cmd_vel_pub = rospy.Publisher('cmd_vel', Twist)

@@ -487,21 +487,21 @@ class SimpleGUI(Plugin):
             self.move_to_bin_action()
         elif('Autonomous Navigation' == button_name):
             rospy.loginfo("STARTING AUTONOMOUS MODE")
-            
+            self.tuck_arms()
 
-            while(self.index < len(locations)):
+            while(self.index < len(self.locations)):
                 self.roomNav.move_to_trash_location(self.locations[self.index])
-                self.index += 1
-                '''
-                self.head_action(1.0, 0, 0.4)
+                # self.index += 1
+                
+                self.head_action(1.0, 0, -0.50, True)
                 # Returns Nonce if nothing, and the point of the first object it sees otherwise
                 map_point = self.pap.detect_objects()
                 
                 if(map_point == None):
-                    index += 1
+                    self.index += 1
                 else:
-                    self.pick_and_move_trash_action
-                '''
+                    self.pick_and_move_trash_action()
+                
             rospy.loginfo("FINISHED AUTONOMOUS MODE")
             
         elif('Object Detect' == button_name):
@@ -520,12 +520,15 @@ class SimpleGUI(Plugin):
         if(map_point.pose.position.x < 0.8):
             self.roomNav.move_to_trash_location(self.locations[self.index - 1])
         '''
-
-        if(map_point.pose.position.x < 0.8):
-            self.roomNav.move_to_trash_location(self.locations[self.index - 1])
+        move_back_first = False;
+        if(map_point.pose.position.x < 0.7):
+            move_back_first = True;
 
         map_point.pose.position.x -= 0.50
         map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
+
+        if(move_back_first):
+            self.roomNav.move_to_trash_location(self.locations[self.index - 1])
 
         self.roomNav.move_to_trash_location(map_point.pose)
         
@@ -593,7 +596,7 @@ class SimpleGUI(Plugin):
         
         
         # Move to bin
-        #self.move_to_bin_action()
+        self.move_to_bin_action()
     
     def get_odom(self):
         # Get the current transform between the odom and base frames
@@ -684,14 +687,19 @@ class SimpleGUI(Plugin):
                 else:
                   rospy.loginfo("Head movement goal failed with error code: " + str(self.goal_states[state]))
 
-    def move_to_bin_action(self):
-        # First tuck arms
+    def tuck_arms(self):
         rospy.loginfo('Left tuck arms')
         self.animPlay.left_poses = self.saved_animations['left_tuck'].left
         self.animPlay.right_poses = self.saved_animations['left_tuck'].right
         self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
         self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
         self.animPlay.play('3.0')
+
+
+    def move_to_bin_action(self):
+        # First tuck arms
+        self.tuck_arms()
+
         # Move to the bin
         rospy.loginfo('Clicked the move to bin button')
         self.roomNav.move_to_bin()
@@ -703,12 +711,7 @@ class SimpleGUI(Plugin):
         self.animPlay.right_gripper_states = self.saved_animations['l_dispose'].right_gripper
         self.animPlay.play('2.0')
         # Tuck arms again
-        rospy.loginfo('Left tuck arms')
-        self.animPlay.left_poses = self.saved_animations['left_tuck'].left
-        self.animPlay.right_poses = self.saved_animations['left_tuck'].right
-        self.animPlay.left_gripper_states = self.saved_animations['left_tuck'].left_gripper
-        self.animPlay.right_gripper_states = self.saved_animations['left_tuck'].right_gripper
-        self.animPlay.play('3.0')
+        self.tuck_arms()
             
     def shutdown_plugin(self):
         # TODO unregister all publishers here
