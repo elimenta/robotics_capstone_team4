@@ -364,6 +364,7 @@ class SimpleGUI(Plugin):
                          Pose(Point(0.722846984863, -1.0921459198, 0.000), Quaternion(0.000, 0.000, 0.949330143731, -0.314280572424))]
         '''
         self.locations = [Pose(Point(2.04748392105, 2.04748010635, 0.000), Quaternion(0.000, 0.000, -0.776968030817,  0.629540053601)),
+                          Pose(Point(2.34193611145, 1.43208932877, 0), Quaternion(0, 0, -0.841674385779, 0.539985396398)),
                           Pose(Point(3.43202018738, -0.258297920227, 0.000), Quaternion(0.000, 0.000, 0.996656413122, -0.0817067572629)),
                           Pose(Point(0.931655406952, -1.96435832977, 0.000), Quaternion(0.000, 0.000, 0.691187586713, 0.722675390458)),
                           Pose(Point(-0.369112968445, 0.0330476760864, 0.000), Quaternion(0.000, 0.000, 0.0275340398899, 0.999620866453))]
@@ -509,6 +510,7 @@ class SimpleGUI(Plugin):
                     self.pick_and_move_trash_action()
                 
             rospy.loginfo("FINISHED AUTONOMOUS MODE")
+            self.index = 1
             
         elif('Object Detect' == button_name):
             self.pick_and_move_trash_action()

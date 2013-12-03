@@ -177,18 +177,21 @@ class PickAndPlaceManager():
 
                 total_x = 0
                 total_y = 0
+                #total_z = 0
 
                 for point in points:
                     total_x += point.x 
                     total_y += point.y
+                    #total_z += point.z
                 
                 x_dist = total_x / len(points)
                 y_dist = total_y / len(points)
 
                 dist = sqrt(pow(x_dist,2) + pow(y_dist, 2))
+		rospy.loginfo(dist)
                 
                 if(dist < min_dist):
-                    dist = min_dist
+                    min_dist = dist
                     min_index = index
 
                 index += 1
@@ -204,7 +207,7 @@ class PickAndPlaceManager():
             
             #pass the name that the object has in the collision environment
             #this name was also returned by the collision map processor
-            pickup_goal.collision_object_name = col_res.collision_object_names[0]
+            pickup_goal.collision_object_name = col_res.collision_object_names[min_index]
             
             #pass the collision name of the table, also returned by the collision 
             #map processor
@@ -252,6 +255,6 @@ class PickAndPlaceManager():
         
 
             return True        # Check for success or failure
-        else
+        else:
             return False
 
