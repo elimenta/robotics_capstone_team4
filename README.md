@@ -14,7 +14,7 @@ The contents of this repository should be in <your catkin_ws>/src, you should no
    
 You have now completely initialized the components (assuming everything worked). Otherwise retry the above steps.
    
-#Milestone 2: Running the Trash Collector
+##Milestone 2: Running the Trash Collector
 Our trash collector currently activates through a button in our GUI labeled with the words "Autonomous Demo"
 This will cause the PR2 robot to navigate to fixed pre-defined positions in a map (which are its patrol points), search for trash on the ground and attempt to pick it up, then move the object to the bin.
 
