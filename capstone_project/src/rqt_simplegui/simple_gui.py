@@ -530,7 +530,7 @@ class SimpleGUI(Plugin):
         if(move_back_first):
             self.roomNav.move_to_trash_location(self.locations[self.index - 1])
 
-        self.roomNav.move_to_trash_location(map_point.pose)
+        success = self.roomNav.move_to_trash_location(map_point.pose)
         
         '''This part of the code strafes the robot left to get closer to the object'''
         
@@ -577,26 +577,27 @@ class SimpleGUI(Plugin):
                 distance = abs(position.y - y_start) 
         '''
         
-        # Move head to look at the object, this will wait for a result
-        self.head_action(0, 0.4, 0.55, True)
-
-        # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
-        self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
-        self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
-        self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
-        self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
-        self.animPlay.play('3.0')
-
-        for i in range (0,3):
-            success = self.pap.detect_and_pickup()
-            # Move head back to look forward
+        if(success):
             # Move head to look at the object, this will wait for a result
-            self.head_action(1.0, 0.0, 0.55, True)
-        
-        # Move to bin
-        self.move_to_bin_action()
-            if success:
-                break
+            self.head_action(0, 0.4, 0.55, True)
+
+            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
+            self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
+            self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
+            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
+            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
+            self.animPlay.play('3.0')
+
+            for i in range (0,3):
+                success = self.pap.detect_and_pickup()
+                # Move head back to look forward
+                # Move head to look at the object, this will wait for a result
+                self.head_action(1.0, 0.0, 0.55, True)
+                if success:
+                    break
+            
+            # Move to bin
+            self.move_to_bin_action()
 
 
     
