@@ -493,14 +493,17 @@ class SimpleGUI(Plugin):
         elif('Move to Bin' == button_name):
             self.move_to_bin_action()
         elif('Autonomous Navigation' == button_name):
+            self._sound_client.say("Starting autonomous demo")
             rospy.loginfo("STARTING AUTONOMOUS MODE")
             self.tuck_arms()
 
             while(self.index < len(self.locations)):
+                self._sound_client.say("Moving to patrol point")
                 self.roomNav.move_to_trash_location(self.locations[self.index])
                 # self.index += 1
                 
                 self.head_action(1.0, 0, -0.50, True)
+                self._sound_client.say("Searching for Trash")
                 # Returns Nonce if nothing, and the point of the first object it sees otherwise
                 map_point = self.pap.detect_objects()
                 
@@ -510,6 +513,7 @@ class SimpleGUI(Plugin):
                     self.pick_and_move_trash_action()
                 
             rospy.loginfo("FINISHED AUTONOMOUS MODE")
+            self._sound_client.say("Autonomous demo completed")
             self.index = 1
             
         elif('Object Detect' == button_name):
@@ -590,6 +594,7 @@ class SimpleGUI(Plugin):
         '''
        
         if(success):
+            self._sound_client.say("Picking up trash")
             # Move head to look at the object, this will wait for a result
             self.head_action(0, 0.4, 0.55, True)
 
@@ -604,14 +609,13 @@ class SimpleGUI(Plugin):
                 success = self.pap.detect_and_pickup()
                 # Move head back to look forward
                 # Move head to look at the object, this will wait for a result
-                self.head_action(1.0, 0.0, 0.55, True)
                 if success:
+                    # Move to bin
+                    self.head_action(1.0, 0.0, 0.55, True)
+                    self._sound_client.say("Moving to bin")
+                    self.move_to_bin_action()
                     break
             
-            # Move to bin
-            self.move_to_bin_action()
-
-
     
     def get_odom(self):
         # Get the current transform between the odom and base frames
