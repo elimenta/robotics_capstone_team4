@@ -350,13 +350,12 @@ class SimpleGUI(Plugin):
         self.saved_animations_list.addItems(self.saved_animations.keys())
         
         # Move the torso all the way down
-        #self.torso_down(True)
+        self.torso_down(True)
 
         # Autonomous navigation stuff
         self.locations = [Pose(Point(2.48293590546, 3.90075874329, 0.000), Quaternion(0.000, 0.000, -0.783917630973, 0.620864838632)),
                          Pose(Point(3.70106744766, 0.304672241211, 0.000), Quaternion(0.000, 0.000, 0.950186880196, -0.311680754463)),
-                         Pose(Point(3.09685325623, 1.36078500748, 0.000), Quaternion(0.000, 0.000, 0.959508657194, -0.281679137975)),
-                         Pose(Point(2.55368804932, 2.090487957, 0.000), Quaternion(0.000, 0.000, 0.961630879526, -0.274346590179)),
+                         Pose(Point(2.57326722145, 1.51304531097, 0.000), Quaternion(0.000, 0.000, 0.96127194482, -0.275601611212)),
                          Pose(Point(1.28060531616, 1.52380752563, 0.000), Quaternion(0.000, 0.000, 0.946345258806, -0.323157316388)),
                          Pose(Point(2.11048603058, 0.420155525208, 0.000), Quaternion(0.000, 0.000, 0.945222393391, -0.326427062346)),
                          Pose(Point(2.82733058929, -0.739856719971, 0.000), Quaternion(0.000, 0.000, 0.945473998362, -0.325697587373)),
@@ -580,7 +579,7 @@ class SimpleGUI(Plugin):
                 # Compute the Euclidean distance from the start
                 distance = abs(position.y - y_start) 
         '''
-        
+       
         if(success):
             # Move head to look at the object, this will wait for a result
             self.head_action(0, 0.4, 0.55, True)
@@ -653,7 +652,7 @@ class SimpleGUI(Plugin):
     	self.torso_client = SimpleActionClient('/torso_controller/position_joint_action', SingleJointPositionAction)
     	torso_goal = SingleJointPositionGoal()
     	torso_goal.position = 0.0
-    	torso_goal.min_duration = rospy.Duration(2.0)
+    	torso_goal.min_duration = rospy.Duration(5.0)
     	torso_goal.max_velocity = 1.0
     	self.torso_client.send_goal(torso_goal)
         if wait:

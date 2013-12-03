@@ -214,7 +214,7 @@ class PickAndPlaceManager():
         if not finished_within_time:
             pickup_client.cancel_goal()
             rospy.loginfo("Timed out achieving pickup goal")
-            return false
+            return False
         else:
             state = pickup_client.get_state()
             if state == GoalStatus.SUCCEEDED:
@@ -222,8 +222,8 @@ class PickAndPlaceManager():
                 rospy.loginfo("State:" + str(state))
             else:
               rospy.loginfo("Pickup goal failed with error code: " + str(state))
-              return false
+              return False
         
 
-        return true        # Check for success or failure
+        return True        # Check for success or failure
 
