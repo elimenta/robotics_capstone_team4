@@ -151,79 +151,82 @@ class PickAndPlaceManager():
         rospy.loginfo("Detected " + str(len(det_res.detection.clusters)) + " objects")
         #rospy.loginfo("Detected " + str(len(col_res.graspable_objects)) + " objects")
 
-        col_req = TabletopCollisionMapProcessingRequest()
-        col_req.reset_collision_models = 1
-        col_req.reset_attached_models = 1
-        col_req.detection_result = det_res.detection
-        col_req.desired_frame = 'base_link'
+        if(len(det_res.detection.clusters) > 0):
+            col_req = TabletopCollisionMapProcessingRequest()
+            col_req.reset_collision_models = 1
+            col_req.reset_attached_models = 1
+            col_req.detection_result = det_res.detection
+            col_req.desired_frame = 'base_link'
 
-        #call collision map processing to add the detected objects to the collision map
-        #and get back a list of GraspableObjects
-        try:
-            col_res = self.collision_map_processing_srv(col_req)
-        except rospy.ServiceException, e:
-            rospy.logerr("error when calling %s: %s"%(self.collision_map_processing_name, e))
-            self.throw_exception()
-            return (None)
+            #call collision map processing to add the detected objects to the collision map
+            #and get back a list of GraspableObjects
+            try:
+                col_res = self.collision_map_processing_srv(col_req)
+            except rospy.ServiceException, e:
+                rospy.logerr("error when calling %s: %s"%(self.collision_map_processing_name, e))
+                self.throw_exception()
+                return (None)
 
 
 
-        pickup_client = SimpleActionClient("/object_manipulator/object_manipulator_pickup", PickupAction)
-        pickup_client.wait_for_server()
+            pickup_client = SimpleActionClient("/object_manipulator/object_manipulator_pickup", PickupAction)
+            pickup_client.wait_for_server()
 
-        rospy.loginfo("Calling the pickup action")
-        pickup_goal = PickupGoal()
+            rospy.loginfo("Calling the pickup action")
+            pickup_goal = PickupGoal()
 
-        pickup_goal.target = col_res.graspable_objects[0];
-        
-        #pass the name that the object has in the collision environment
-        #this name was also returned by the collision map processor
-        pickup_goal.collision_object_name = col_res.collision_object_names[0]
-        
-        #pass the collision name of the table, also returned by the collision 
-        #map processor
-        pickup_goal.collision_support_surface_name = col_res.collision_support_surface_name
-        
-        #pick up the object with the left arm
-        pickup_goal.arm_name = "left_arm"
-        
-        #we will be lifting the object along the "vertical" direction
-        #which is along the z axis in the base_link frame
-        direction = Vector3Stamped()
-        direction.header.stamp = rospy.Time.now()
-        direction.header.frame_id = "base_link"
-        direction.vector.x = 0;
-        direction.vector.y = 0;
-        direction.vector.z = 1;
-        pickup_goal.lift.direction = direction;
-        
-        #request a vertical lift of 10cm after grasping the object
-        pickup_goal.lift.desired_distance = 0.1
-        
-        #do not use tactile-based grasping or tactile-based lift
-        pickup_goal.use_reactive_lift = 0
-        pickup_goal.use_reactive_execution = 0
-        
-        
-        #send the goal
-        pickup_client.send_goal(pickup_goal)
-        rospy.loginfo("sent pickup goal")
-        # wait for the head movement to finish before we try to detect and pickup an object
-        finished_within_time = pickup_client.wait_for_result(rospy.Duration(30))
+            pickup_goal.target = col_res.graspable_objects[0];
+            
+            #pass the name that the object has in the collision environment
+            #this name was also returned by the collision map processor
+            pickup_goal.collision_object_name = col_res.collision_object_names[0]
+            
+            #pass the collision name of the table, also returned by the collision 
+            #map processor
+            pickup_goal.collision_support_surface_name = col_res.collision_support_surface_name
+            
+            #pick up the object with the left arm
+            pickup_goal.arm_name = "left_arm"
+            
+            #we will be lifting the object along the "vertical" direction
+            #which is along the z axis in the base_link frame
+            direction = Vector3Stamped()
+            direction.header.stamp = rospy.Time.now()
+            direction.header.frame_id = "base_link"
+            direction.vector.x = 0;
+            direction.vector.y = 0;
+            direction.vector.z = 1;
+            pickup_goal.lift.direction = direction;
+            
+            #request a vertical lift of 10cm after grasping the object
+            pickup_goal.lift.desired_distance = 0.1
+            
+            #do not use tactile-based grasping or tactile-based lift
+            pickup_goal.use_reactive_lift = 0
+            pickup_goal.use_reactive_execution = 0
+            
+            
+            #send the goal
+            pickup_client.send_goal(pickup_goal)
+            rospy.loginfo("sent pickup goal")
+            # wait for the head movement to finish before we try to detect and pickup an object
+            finished_within_time = pickup_client.wait_for_result(rospy.Duration(30))
 
-        if not finished_within_time:
-            pickup_client.cancel_goal()
-            rospy.loginfo("Timed out achieving pickup goal")
-            return False
-        else:
-            state = pickup_client.get_state()
-            if state == GoalStatus.SUCCEEDED:
-                rospy.loginfo("Pickup goal succeeded!")
-                rospy.loginfo("State:" + str(state))
+            if not finished_within_time:
+                pickup_client.cancel_goal()
+                rospy.loginfo("Timed out achieving pickup goal")
+                return False
             else:
-              rospy.loginfo("Pickup goal failed with error code: " + str(state))
-              return False
+                state = pickup_client.get_state()
+                if state == GoalStatus.SUCCEEDED:
+                    rospy.loginfo("Pickup goal succeeded!")
+                    rospy.loginfo("State:" + str(state))
+                else:
+                  rospy.loginfo("Pickup goal failed with error code: " + str(state))
+                  return False
         
 
-        return True        # Check for success or failure
+            return True        # Check for success or failure
+        else
+            return False
 
