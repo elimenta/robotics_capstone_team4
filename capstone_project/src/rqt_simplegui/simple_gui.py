@@ -508,6 +508,7 @@ class SimpleGUI(Plugin):
             self.pick_and_move_trash_action()
             
     def pick_and_move_trash_action(self):
+        self.head_action(1.0, 0, 0.5, True)
         map_point = self.pap.detect_objects()
 
         # Convert to base link and move towards the object 0.50m away
@@ -519,8 +520,13 @@ class SimpleGUI(Plugin):
         if(map_point.pose.position.x < 0.8):
             self.roomNav.move_to_trash_location(self.locations[self.index - 1])
         '''
+
+        if(map_point.pose.position.x < 0.8):
+            self.roomNav.move_to_trash_location(self.index - 1)
+
         map_point.pose.position.x -= 0.50
         map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
+
         self.roomNav.move_to_trash_location(map_point.pose)
         
         '''This part of the code strafes the robot left to get closer to the object'''
