@@ -524,7 +524,7 @@ class SimpleGUI(Plugin):
         if(map_point.pose.position.x < 0.7):
             move_back_first = True;
 
-        map_point.pose.position.x -= 0.50
+        map_point.pose.position.x -= 0.450
         map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
 
         if(move_back_first):
