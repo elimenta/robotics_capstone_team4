@@ -513,35 +513,37 @@ class SimpleGUI(Plugin):
         # Convert to base link and move towards the object 0.50m away
         map_point = Transformer.transform(self._tf_listener, map_point.pose, map_point.header.frame_id, '/base_link')
 
-        if(map_point.pose.position.x > 0.8):
-            rospy.loginfo("Object is " + str (map_point.pose.position.x) + " away")
-            '''
-            if(map_point.pose.position.x < 0.8):
-                self.roomNav.move_to_trash_location(self.locations[self.index - 1])
-            '''
-            map_point.pose.position.x -= 0.70
-            map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
-            self.roomNav.move_to_trash_location(map_point.pose)
-            
-            '''This part of the code strafes the robot left to get closer to the object'''
-            rate = rospy.Rate(10)
-            position = Point()
-            move_cmd = Twist()
-            move_cmd.linear.y = 0.25
-            odom_frame = '/odom_combined'
-            
-            # Find out if the robot uses /base_link or /base_footprint
-            try:
-                self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
-                self.base_frame = '/base_footprint'
-            except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-               try:
-                   self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
-                   self.base_frame = '/base_link'
-               except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-                   rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
-                   rospy.signal_shutdown("tf Exception")
-            
+
+        rospy.loginfo("Object is " + str (map_point.pose.position.x) + " away")
+        '''
+        if(map_point.pose.position.x < 0.8):
+            self.roomNav.move_to_trash_location(self.locations[self.index - 1])
+        '''
+        map_point.pose.position.x -= 0.50
+        map_point = Transformer.transform(self._tf_listener, map_point.pose, '/base_link', '/map')
+        self.roomNav.move_to_trash_location(map_point.pose)
+        
+        '''This part of the code strafes the robot left to get closer to the object'''
+        
+        '''
+        rate = rospy.Rate(10)
+        position = Point()
+        move_cmd = Twist()
+        move_cmd.linear.y = 0.25
+        odom_frame = '/odom_combined'
+        
+        # Find out if the robot uses /base_link or /base_footprint
+        try:
+            self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
+            self.base_frame = '/base_footprint'
+        except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+           try:
+               self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
+               self.base_frame = '/base_link'
+           except (tf.Exception, tf.ConnectivityException, tf.LookupException):
+               rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
+               rospy.signal_shutdown("tf Exception")
+        
             # Get current position
             position = self.get_odom()
             
@@ -564,67 +566,18 @@ class SimpleGUI(Plugin):
                 
                 # Compute the Euclidean distance from the start
                 distance = abs(position.y - y_start) 
-
+        '''
         
-            # Move head to look at the object, this will wait for a result
-            self.head_action(0, 0.4, 0.55, True)
+        # Move head to look at the object, this will wait for a result
+        self.head_action(0, 0.4, 0.55, True)
 
-            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
-            self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
-            self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
-            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
-            self.animPlay.play('3.0')
+        # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
+        self.animPlay.left_poses = self.saved_animations['ready_pickup'].left
+        self.animPlay.right_poses = self.saved_animations['ready_pickup'].right
+        self.animPlay.left_gripper_states = self.saved_animations['ready_pickup'].left_gripper
+        self.animPlay.right_gripper_states = self.saved_animations['ready_pickup'].right_gripper
+        self.animPlay.play('3.0')
 
-        else:
-            rate = rospy.Rate(10)
-            position = Point()
-            move_cmd = Twist()
-            move_cmd.linear.y = 0.25
-            odom_frame = '/odom_combined'
-            
-            # Find out if the robot uses /base_link or /base_footprint
-            try:
-                self._tf_listener.waitForTransform(odom_frame, '/base_footprint', rospy.Time(), rospy.Duration(1.0))
-                self.base_frame = '/base_footprint'
-            except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-               try:
-                   self._tf_listener.waitForTransform(odom_frame, '/base_link', rospy.Time(), rospy.Duration(1.0))
-                   self.base_frame = '/base_link'
-               except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-                   rospy.loginfo("Cannot find transform between " + odom_frame + " and /base_link or /base_footprint")
-                   rospy.signal_shutdown("tf Exception")
-            
-            # Get current position
-            position = self.get_odom()
-            
-            x_start = position.x
-            y_start = position.y
-            
-            # Distance travelled
-            distance = 0
-            goal_distance = map_point.pose.position.x - 0.5
-            rospy.loginfo("Strafing left")
-            # Enter the loop to move along a side
-            while distance < goal_distance:
-                rospy.loginfo("Distance is at " + str(distance))
-                # Publish the Twist message and sleep 1 cycle
-                self.base_action(0.25, 0.0, 0, 0, 0, 0)
-                rate.sleep()
-                
-                # Get the current position
-                position = self.get_odom()
-                
-                # Compute the Euclidean distance from the start
-                distance = abs(position.x - x_start)
-            
-            # Move arms to ready pickup position, this will wait for a result before trying to detect and pick up object
-            self.animPlay.left_poses = self.saved_animations['ready_pickup_side'].left
-            self.animPlay.right_poses = self.saved_animations['ready_pickup_side'].right
-            self.animPlay.left_gripper_states = self.saved_animations['ready_pickup_side'].left_gripper
-            self.animPlay.right_gripper_states = self.saved_animations['ready_pickup_side'].right_gripper
-            self.animPlay.play('3.0')
-            
         
         self.pap.detect_and_pickup()
 
