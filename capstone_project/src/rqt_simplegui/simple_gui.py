@@ -308,7 +308,7 @@ class SimpleGUI(Plugin):
         second_base_button_box.addWidget(self.create_pressed_button('>'))
         second_base_button_box.addWidget(self.create_button('Move to Bin'))
         second_base_button_box.addWidget(self.create_button('Object Detect'))
-        second_base_button_box.addWidget(self.create_button('Autonomous Navigation'))
+        second_base_button_box.addWidget(self.create_button('Clear Room'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
         
@@ -492,7 +492,7 @@ class SimpleGUI(Plugin):
                 
         elif('Move to Bin' == button_name):
             self.move_to_bin_action()
-        elif('Autonomous Navigation' == button_name):
+        elif('Clean Room' == button_name):
             rospy.loginfo("STARTING AUTONOMOUS MODE")
             self.tuck_arms()
 
