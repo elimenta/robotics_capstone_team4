@@ -308,7 +308,7 @@ class SimpleGUI(Plugin):
         second_base_button_box.addWidget(self.create_pressed_button('>'))
         second_base_button_box.addWidget(self.create_button('Move to Bin'))
         second_base_button_box.addWidget(self.create_button('Object Detect'))
-        second_base_button_box.addWidget(self.create_button('Clear Room'))
+        second_base_button_box.addWidget(self.create_button('Clean Room'))
         second_base_button_box.addStretch(1)
         large_box.addLayout(second_base_button_box)
         
